@@ -59,7 +59,7 @@ Additional input fields:
 
 Steps:
 1. Read `reviewer_comments` and address each one in the code.
-2. Run `swift build` / `xcodebuild build` to confirm the project still compiles (same retry policy as `implement`: up to 3 attempts).
+2. Run `swift build` / `xcodebuild build` to confirm the project still compiles (same retry policy as `implement`: up to 3 attempts). If still failing after 3 attempts, stop here — do not commit or push — and report the failure (same as `implement`).
 3. Once the build succeeds, run the **SwiftUI Pro review** (see above).
 4. Commit the fixes and push to the existing PR branch (same branch as `create_pr` — do not create a new branch). This updates the PR in place.
 
