@@ -39,12 +39,14 @@
 - `mode`: `"new_app"` or `"feature_addition"`. Set once, at initialization, based on whether `.ios-orchestrator/state.json` existed at the start of the run.
 - `phase`: one of `architect`, `ui_designer`, `developer`, `test_engineer`, `pr_creation`, `code_review`, `merge`, `release_manager` — the phase currently in progress or last completed.
 - `phase_status`: `"in_progress"` or `"complete"`.
-- `review_round`: current round of the PR review loop (see `pr-review-flow.md`). Reset to `0` before the first review dispatch, becomes `1` for the first review, `2` for the second.
-- `screens_affected`: `true`/`false`, set by the Architect's report. Determines whether `ui_designer` runs and whether the design-mode question is asked (see `design-mode.md`).
-- `design_mode`: `"text"`, `"figma"`, `"claude_design"`, or `"bring_your_own"`. Only meaningful when `screens_affected: true`; otherwise unset.
+- `review_round`: current round of the PR review loop (see `pr-review-flow.md`). Monotonically increasing across the PR's lifecycle: `0` before the first review dispatch, `1` for the first review, `2` for the second (the loop is capped at 2 rounds — see `pr-review-flow.md`).
+- `screens_affected`: `true`, `false`, or `null` if not yet determined (set by the Architect's report). Determines whether `ui_designer` runs and whether the design-mode question is asked (see `design-mode.md`).
+- `design_mode`: `"text"`, `"figma"`, `"claude_design"`, or `"bring_your_own"`. Only meaningful when `screens_affected: true`; otherwise unset (key omitted).
 - `design_sources`: list of file paths/URLs to user-provided designs. Only populated when `design_mode` is `"bring_your_own"`; empty otherwise.
 - `last_commit_sha`: HEAD of the project's default branch as of the last orchestrator update. Used for drift detection on resume, and updated after the `developer`/`pr_creation` phases (see `role-boundaries.md` for which phases commit).
-- `pr_url`: set once `pr_creation` completes; used by `code_review` and `merge`.
+- `pr_url`: set once `pr_creation` completes; used by `code_review` and `merge`. Unset (key omitted) before then.
+
+Throughout this schema, "unset" means the key is omitted from the JSON entirely (not present with a `null` value), except for `screens_affected`, which is explicitly `null` while undetermined since the orchestrator needs to distinguish "not yet known" from "known to be false."
 - `open_risks`: list of risks/blockers raised by subagents that haven't been resolved or dismissed. Each entry has:
   - `id`: stable identifier (`risk-1`, `risk-2`, ... incrementing across the whole run)
   - `phase`: the phase that raised it (same short names as the `phase` field)
