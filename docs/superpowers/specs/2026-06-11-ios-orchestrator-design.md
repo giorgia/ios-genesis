@@ -4,32 +4,50 @@
 
 A Claude Code toolkit for building and extending iOS apps using a coordinated team of specialist subagents. The toolkit lives in this repo (`iOSOrchestator`) and is applied to *other* project directories — it does not host iOS app code itself.
 
-A single skill, `/build-ios-app`, acts as the orchestrator: it runs in the user's main Claude Code session, dispatches specialist subagents in sequence, checkpoints with the user after each phase, and coordinates a GitHub PR review loop between the developer and reviewer.
+A single skill, `/ios-genesis`, acts as the orchestrator: it runs in the user's main Claude Code session, dispatches specialist subagents in sequence, checkpoints with the user after each phase, and coordinates a GitHub PR review loop between the developer and reviewer.
+
+The toolkit is packaged as a Claude Code **plugin** (see Packaging & Installation below), so `/ios-genesis` is available from any project directory once installed — the user does not need to run Claude Code from within `iOSOrchestator`.
 
 ## Architecture & File Layout
 
 ```
 iOSOrchestator/
-└── .claude/
-    ├── agents/
-    │   ├── ios-architect.md
-    │   ├── ios-ui-designer.md
-    │   ├── ios-developer.md
-    │   ├── ios-test-engineer.md
-    │   ├── ios-code-reviewer.md
-    │   └── ios-release-manager.md
-    └── skills/
-        └── build-ios-app/
-            └── SKILL.md
+├── .claude-plugin/
+│   ├── plugin.json
+│   └── marketplace.json
+├── agents/
+│   ├── ios-architect.md
+│   ├── ios-ui-designer.md
+│   ├── ios-developer.md
+│   ├── ios-test-engineer.md
+│   ├── ios-code-reviewer.md
+│   └── ios-release-manager.md
+└── skills/
+    └── ios-genesis/
+        ├── SKILL.md
+        └── references/
 ```
 
-`/build-ios-app <target-project-path> <description>` is the entry point. The orchestrator:
+`/ios-genesis <target-project-path> <description>` is the entry point. The orchestrator:
 
 1. Checks whether `<target-project-path>` already contains a project and/or `.ios-orchestrator/state.json`.
 2. Routes to the **new app** flow or the **feature addition** flow accordingly.
 3. Dispatches subagents via the Agent tool, one phase at a time, pausing for user checkpoints between phases.
 
 State for resumability lives in the target project at `<target-project>/.ios-orchestrator/state.json`, not in this repo — each app's orchestration history travels with the app.
+
+## Packaging & Installation
+
+This repo doubles as a local Claude Code plugin marketplace (`.claude-plugin/marketplace.json`) containing one plugin, `ios-genesis` (`.claude-plugin/plugin.json`), whose `agents/` and `skills/` directories are this repo's `agents/` and `skills/` directories. It is **not published** to any public marketplace.
+
+To install locally:
+
+```
+/plugin marketplace add /Users/giorgiamarenda/Projects/iOSOrchestator
+/plugin install ios-genesis@ios-orchestrator
+```
+
+After installation, `/ios-genesis <target-project-path> <description>` and the six `ios-*` subagents are available in any Claude Code session, regardless of working directory. Re-running `/plugin marketplace add` after pulling changes to this repo picks up updates to the agents/skill.
 
 ## Checkpoints
 
@@ -214,6 +232,6 @@ On resume, the orchestrator reads this file to determine where to pick up. Befor
 
 ## Validation
 
-No traditional unit test suite applies, since this project produces agent/skill *definitions* (markdown + prompts). Validation is a real end-to-end dry run: after writing the agents and skill, run `/build-ios-app` against a small throwaway app spec (e.g., a simple single-screen counter app) in a scratch directory, and confirm each phase runs, produces the expected docs, the PR review loop functions, and the final app builds and passes tests.
+No traditional unit test suite applies, since this project produces agent/skill *definitions* (markdown + prompts). Validation is a real end-to-end dry run: after writing the agents and skill, run `/ios-genesis` against a small throwaway app spec (e.g., a simple single-screen counter app) in a scratch directory, and confirm each phase runs, produces the expected docs, the PR review loop functions, and the final app builds and passes tests.
 
 To exercise the GitHub flow without creating throwaway public repos, use a pre-existing private scratch repo (created once, reused across dry runs) rather than letting `gh repo create` run fresh each time.
