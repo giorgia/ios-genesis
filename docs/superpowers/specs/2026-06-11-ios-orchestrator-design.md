@@ -50,7 +50,7 @@ An `open_risks` entry is removed in two ways: (a) the user resolves or dismisses
 | Agent | Model | Responsibility | Key tools |
 |---|---|---|---|
 | **ios-architect** | Sonnet | Given the orchestrator's interview output (see Orchestrator Interview), turns it into requirements + architecture (modules, data flow, frameworks), writes `docs/architecture.md` (new app) or a scope summary (feature addition) — affected modules/files, etc. Reports back to the orchestrator whether the change affects screens/UI (`screens_affected: true/false`), which the orchestrator uses to decide whether to run the UI Designer phase. | Read, Grep, Glob, Write |
-| **ios-ui-designer** | Sonnet | Defines screen list, navigation flow, and SwiftUI view hierarchy per screen (component breakdown, state, HIG considerations). Writes `docs/design.md`. Skipped for feature additions unless new/changed screens are needed. | Read, Write |
+| **ios-ui-designer** | Sonnet | Defines screen list, navigation flow, and SwiftUI view hierarchy per screen (component breakdown, state, HIG considerations). Writes `docs/design.md`. Skipped for feature additions unless new/changed screens are needed. If `design_mode` is `figma`, also generates mockups in Figma (see Design Mode) and links the file from `docs/design.md`. | Read, Write (+ Figma MCP tools if `design_mode` is `figma`) |
 | **ios-developer** | Sonnet | Scaffolds the Xcode project (new) or modifies the existing one. Implements views/models/services per the design. Runs `xcodebuild build` / `swift build` until it compiles. Creates feature branches, commits, pushes, and opens PRs. Addresses reviewer feedback. | Read, Write, Edit, Bash |
 | **ios-test-engineer** | Sonnet | Writes/updates unit and UI tests for new or changed functionality. Runs `xcodebuild test` until passing. Re-runs tests after reviewer-driven fixes if behavior changed. | Read, Write, Edit, Bash |
 | **ios-code-reviewer** | Sonnet | Reviews the PR via `gh pr diff`/`gh pr view`, posts comments via `gh pr review`/`gh pr comment`. Approves via `gh pr review --approve` once satisfied. | Read, Grep, Glob, Bash |
@@ -65,6 +65,18 @@ Before dispatching the Architect, the orchestrator (running in the user's main s
 - Explore project context, ask clarifying questions one at a time, propose 2-3 approaches with trade-offs, and present the design in sections — following the brainstorming skill as normal through the "User approves design?" step (steps 1-5 of that skill's checklist). The visual companion (step 2) is not expected to be offered in this CLI-driven context and can be left declined/skipped.
 - **Adapted terminal steps**: brainstorming's remaining steps (6: write to `docs/superpowers/specs/`, 7: spec-review subagent loop, 8: user reviews the written spec, 9: invoke `writing-plans`) are replaced. Once the design is approved (end of step 5), the orchestrator does **not** write to `docs/superpowers/specs/`, run a spec-review loop, or invoke `writing-plans` — the orchestrator's own phase sequence (Architect → UI Designer → Developer → ...) is the implementation plan.
 - The approved interview output (requirements, chosen approach, design summary) is passed to the Architect as input for its phase — the Architect turns it into `docs/architecture.md` (new app) or a scope summary (feature addition).
+
+## Design Mode
+
+`screens_affected` is determined by the Architect (phase 1), so the orchestrator can't ask about design mode during its own interview (phase 0). Instead: once the user selects "Continue to the next phase" at the Architect's checkpoint, if `screens_affected: true` and `design_mode` is not yet set, the orchestrator asks a follow-up `AskUserQuestion` (before dispatching the UI Designer) for how the user wants UI design handled. If `screens_affected: false`, this question is skipped entirely (and `design_mode` stays unset) — this applies the same way to both new apps and feature additions, even though new apps will almost always report `screens_affected: true`. If the user picks "Make changes first" or "Stop here" at the Architect checkpoint, the design-mode question is deferred until a later "Continue" is selected.
+
+Options:
+
+- **Text-only (default/recommended)** — the UI Designer writes `docs/design.md` only (screen list, navigation, SwiftUI view hierarchy/component breakdown). The checkpoint after this phase is the user's design review.
+- **Figma** — in addition to `docs/design.md`, the UI Designer generates mockups in Figma. Before offering this option, the orchestrator checks that the Figma MCP server is available; if not, this option is omitted (text-only and Claude Design remain available). The UI Designer must follow the `/figma-use` skill before calling `use_figma`/`generate_figma_design` (per the Figma MCP server's own instructions), and links the resulting file from `docs/design.md` and the checkpoint summary.
+- **Claude Design (manual)** — the UI Designer writes `docs/design.md` as in the text-only case. At this phase's checkpoint, the orchestrator additionally presents a copy-pasteable summary of the screens/flows and instructions for the user to paste it into Claude Design (claude.ai) to generate visual mockups and review/iterate there. No automation or artifact capture happens on the orchestrator's side — the standard checkpoint choices (Continue/Make changes/Stop) apply as-is, with "Continue" understood to mean the user is satisfied (whether or not they used Claude Design) and `docs/design.md` remains the spec the Developer codes against.
+
+The choice is recorded as `design_mode: "text" | "figma" | "claude_design"` in `state.json`. If the user doesn't express a preference, the orchestrator defaults to `"text"`.
 
 ## Orchestration Flow
 
@@ -114,6 +126,7 @@ Before dispatching the Architect, the orchestrator (running in the user's main s
   "phase_status": "in_progress",
   "review_round": 1,
   "screens_affected": true,
+  "design_mode": "text",
   "last_commit_sha": "a1b2c3d4...",
   "pr_url": "https://github.com/user/repo/pull/1",
   "open_risks": [
@@ -146,6 +159,7 @@ Before dispatching the Architect, the orchestrator (running in the user's main s
 - `phase_status`: `"in_progress"` or `"complete"`.
 - `review_round`: current round of the PR review loop (see PR-Based Review Flow), reset to 0 before the first review.
 - `last_commit_sha`: HEAD of the project's default branch as of the last orchestrator update — used for drift detection.
+- `design_mode`: `"text"`, `"figma"`, or `"claude_design"` — see Design Mode. Only meaningful when `screens_affected` is `true`; otherwise unset.
 - `open_risks`: list of risks/blockers raised by subagents that haven't been resolved or dismissed yet. Each entry has a stable `id` (e.g. `risk-1`, `risk-2`, incrementing), the `phase` that raised it (using the same short names as the `phase` field above), `raised_at`, and a `description`. Surfaced at every checkpoint until removed by `id` — either the user dismisses/resolves it at a checkpoint, or a later subagent's report references the `id` as resolved by its work.
 
 On resume, the orchestrator reads this file to determine where to pick up. Before continuing, it runs `git rev-parse HEAD` on the project's default branch and compares it to `last_commit_sha`:
