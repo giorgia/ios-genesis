@@ -1,10 +1,7 @@
 ---
 name: ios-release-manager
 description: Prepares an iOS app for App Store release readiness - versioning, Info.plist, app icon/asset catalog checklist - writing docs/release-checklist.md.
-tools:
-  - Read
-  - Write
-  - Edit
+tools: Read, Write, Edit
 model: haiku
 ---
 
