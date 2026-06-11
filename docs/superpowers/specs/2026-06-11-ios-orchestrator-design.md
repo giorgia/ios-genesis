@@ -49,6 +49,17 @@ To install locally:
 
 After installation, `/ios-genesis <target-project-path> <description>` and the six `ios-*` subagents are available in any Claude Code session, regardless of working directory. Re-running `/plugin marketplace add` after pulling changes to this repo picks up updates to the agents/skill.
 
+### Optional companion: SwiftUI Pro
+
+The `ios-developer` agent uses the third-party [`swiftui-pro`](https://github.com/twostraws/SwiftUI-Agent-Skill) skill (MIT licensed) to review SwiftUI code for common mistakes — see SwiftUI Pro Integration below. This is a separate plugin, not bundled with `ios-genesis`. It's optional but recommended:
+
+```
+/plugin marketplace add twostraws/SwiftUI-Agent-Skill
+/plugin install swiftui-pro@swiftui-agent-skill
+```
+
+If it's not installed, `ios-developer` simply skips the SwiftUI review pass.
+
 ## Checkpoints
 
 Each subagent reports back to the orchestrator with a short summary of what it did, plus any **risks** (e.g., "this approach assumes X, which may need revisiting") or **blockers** (e.g., "couldn't find an API key for the push notification service — feature is stubbed out") it identified during the phase. Both lists may be empty.
@@ -69,7 +80,7 @@ An `open_risks` entry is removed in two ways: (a) the user resolves or dismisses
 |---|---|---|---|
 | **ios-architect** | Sonnet | Given the orchestrator's interview output (see Orchestrator Interview), turns it into requirements + architecture (modules, data flow, frameworks), writes `docs/architecture.md` (new app) or a scope summary (feature addition) — affected modules/files, etc. Reports back to the orchestrator whether the change affects screens/UI (`screens_affected: true/false`), which the orchestrator uses to decide whether to run the UI Designer phase. | Read, Grep, Glob, Write |
 | **ios-ui-designer** | Sonnet | Defines screen list, navigation flow, and SwiftUI view hierarchy per screen (component breakdown, state, HIG considerations). Writes `docs/design.md`. Skipped for feature additions unless new/changed screens are needed. If `design_mode` is `figma`, also generates mockups in Figma (see Design Mode) and links the file from `docs/design.md`. If `design_mode` is `bring_your_own`, reads `design_sources` and transcribes them into `docs/design.md` instead of designing from scratch. | Read, Write (+ Figma MCP tools if `design_mode` is `figma`; + WebFetch if any `design_sources` are URLs) |
-| **ios-developer** | Sonnet | Scaffolds the Xcode project (new) or modifies the existing one. Implements views/models/services per the design. Runs `xcodebuild build` / `swift build` until it compiles. Creates feature branches, commits, pushes, and opens PRs. Addresses reviewer feedback. | Read, Write, Edit, Bash |
+| **ios-developer** | Sonnet | Scaffolds the Xcode project (new) or modifies the existing one. Implements views/models/services per the design. Runs `xcodebuild build` / `swift build` until it compiles. If the `swiftui-pro` skill is available, invokes it to review SwiftUI code for common mistakes (see SwiftUI Pro Integration). Creates feature branches, commits, pushes, and opens PRs. Addresses reviewer feedback. | Read, Write, Edit, Bash, Skill |
 | **ios-test-engineer** | Sonnet | Writes/updates unit and UI tests for new or changed functionality. Runs `xcodebuild test` until passing. Re-runs tests after reviewer-driven fixes if behavior changed. | Read, Write, Edit, Bash |
 | **ios-code-reviewer** | Sonnet | Reviews the PR via `gh pr diff`/`gh pr view`, posts comments via `gh pr review`/`gh pr comment`. Approves via `gh pr review --approve` once satisfied. | Read, Grep, Glob, Bash |
 | **ios-release-manager** | Haiku | New app only (or on request): versioning, Info.plist setup, app icon/asset catalog checklist, App Store readiness notes. Writes `docs/release-checklist.md`. | Read, Write, Edit |
@@ -128,6 +139,18 @@ Options:
 - **Bring your own designs** — the user already has designs from another tool (Sketch, screenshots of mockups, a Figma file they made themselves, an exported spec, etc.). The orchestrator asks the user for the relevant file paths/URLs/links, and the UI Designer reads them (images, PDFs, linked files) and translates them into `docs/design.md` (screen list, navigation, SwiftUI view hierarchy/component breakdown) referencing the original artifacts by path/URL — i.e. the UI Designer's role becomes "transcribe this existing design into our spec format" rather than "design from scratch." If the provided artifacts don't cover everything (e.g., missing screens or flows) or a source is unreadable (broken link, missing file), the UI Designer fills the gap itself and notes which parts were user-provided vs. its own additions in `docs/design.md` and the checkpoint summary. The checkpoint after this phase is the same design review as text-only, plus these provenance notes.
 
 The choice is recorded as `design_mode: "text" | "figma" | "claude_design" | "bring_your_own"` in `state.json`. If the user doesn't express a preference, the orchestrator defaults to `"text"`. For `"bring_your_own"`, the provided file paths/URLs are recorded in `state.json` as `design_sources` (a list of strings) and passed to the UI Designer.
+
+## SwiftUI Pro Integration
+
+Before implementing, the `ios-developer` agent checks whether the `swiftui-pro` skill is available by invoking the `Skill` tool with `swiftui-pro`; if the tool reports no such skill exists, the Developer proceeds without it. If it is available:
+
+- After the implementation builds successfully (`xcodebuild build`/`swift build` passes), the Developer invokes `/swiftui-pro` to review the SwiftUI views/code it just wrote for common mistakes (deprecated APIs, accessibility/VoiceOver issues, performance problems, navigation/layout/state-management anti-patterns).
+- If `/swiftui-pro` suggests changes, the Developer applies fixes for clear correctness, deprecation, and accessibility issues, and uses its judgment on purely stylistic suggestions, then rebuilds to confirm the project still compiles.
+- This happens once per Developer dispatch (initial implementation and each `address_review` round), after the build succeeds and before committing.
+- Any resulting edits are part of the Developer phase's normal output (same `*.swift` files already in scope) — no separate scope-check category or `open_risks` entry is needed for them.
+- The Developer's checkpoint summary notes whether this pass ran and, if so, what it changed (e.g., "SwiftUI Pro review: applied 2 accessibility fixes") or that it was skipped because `swiftui-pro` isn't installed.
+
+If `swiftui-pro` is not installed, this step is skipped silently — it's an optional quality pass, not a hard dependency, and its absence is not raised as an `open_risks` entry. If it *is* installed but the invocation itself errors, the Developer treats that as part of its existing build-fix-rebuild retry budget (see Error Handling & Edge Cases) rather than a separate failure mode — if it can't get a useful result after retrying, it proceeds without the review and notes this in its checkpoint summary.
 
 ## Orchestration Flow
 
@@ -222,7 +245,7 @@ On resume, the orchestrator reads this file to determine where to pick up. Befor
 
 ## Error Handling & Edge Cases
 
-- **Build/test failures**: Developer/Test Engineer retry fixes themselves (build → fix → rebuild) up to ~3 attempts before surfacing the failure to the user with the error output.
+- **Build/test failures**: Developer/Test Engineer retry fixes themselves (build → fix → rebuild) up to ~3 attempts before surfacing the failure to the user with the error output. The same retry budget covers a `/swiftui-pro` review invocation that errors (see SwiftUI Pro Integration).
 - **Code review loop**: capped at 2 rounds (see PR-Based Review Flow above); unresolved issues after that are surfaced to the user.
 - **Ambiguous requirements**: handled by the orchestrator's `superpowers:brainstorming` interview (see Orchestrator Interview), which asks clarifying questions before any design is written.
 - **Resuming with drift**: if `.ios-orchestrator/state.json` exists but `git rev-parse HEAD` no longer matches `last_commit_sha`, the orchestrator flags this and asks whether to proceed, re-run the affected phase, or have the Architect re-scope first.
