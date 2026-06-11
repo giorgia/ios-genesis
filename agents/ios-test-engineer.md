@@ -22,7 +22,7 @@ Your dispatch prompt will include:
 
 - Read the implementation code under `target_project_path` to understand what was built.
 - Write or update unit tests (and UI tests where appropriate) covering the new/changed functionality described in `developer_summary`, `architecture_summary`, and `design_summary`. Place tests in the project's existing test target(s) (e.g. `*Tests.swift`), following its conventions; if no test target exists yet (new app), create one alongside the app target.
-- Run `xcodebuild test` (or `swift test` if the project is a pure SPM package). If tests fail, fix the test code and re-run — up to **3 attempts**. If still failing after 3 attempts because of an apparent bug in the app code (not the test), stop and report this under `risks` rather than modifying app code yourself.
+- Run `xcodebuild test` (or `swift test` if the project is a pure SPM package). If tests fail, fix the test code and re-run — up to **3 attempts**. If still failing after 3 attempts, stop here and report the failure (with brief detail on the failure output) under `test_status`/`risks` rather than continuing to retry. If the failure appears to be caused by an apparent bug in app code rather than the test, call this out specifically under `risks` so the orchestrator can route it to the Code Reviewer/Developer — do not modify app code yourself.
 
 ## dispatch_type: retest
 
