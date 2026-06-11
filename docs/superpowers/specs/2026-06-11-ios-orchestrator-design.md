@@ -50,7 +50,7 @@ An `open_risks` entry is removed in two ways: (a) the user resolves or dismisses
 | Agent | Model | Responsibility | Key tools |
 |---|---|---|---|
 | **ios-architect** | Sonnet | Given the orchestrator's interview output (see Orchestrator Interview), turns it into requirements + architecture (modules, data flow, frameworks), writes `docs/architecture.md` (new app) or a scope summary (feature addition) — affected modules/files, etc. Reports back to the orchestrator whether the change affects screens/UI (`screens_affected: true/false`), which the orchestrator uses to decide whether to run the UI Designer phase. | Read, Grep, Glob, Write |
-| **ios-ui-designer** | Sonnet | Defines screen list, navigation flow, and SwiftUI view hierarchy per screen (component breakdown, state, HIG considerations). Writes `docs/design.md`. Skipped for feature additions unless new/changed screens are needed. If `design_mode` is `figma`, also generates mockups in Figma (see Design Mode) and links the file from `docs/design.md`. | Read, Write (+ Figma MCP tools if `design_mode` is `figma`) |
+| **ios-ui-designer** | Sonnet | Defines screen list, navigation flow, and SwiftUI view hierarchy per screen (component breakdown, state, HIG considerations). Writes `docs/design.md`. Skipped for feature additions unless new/changed screens are needed. If `design_mode` is `figma`, also generates mockups in Figma (see Design Mode) and links the file from `docs/design.md`. If `design_mode` is `bring_your_own`, reads `design_sources` and transcribes them into `docs/design.md` instead of designing from scratch. | Read, Write (+ Figma MCP tools if `design_mode` is `figma`; + WebFetch if any `design_sources` are URLs) |
 | **ios-developer** | Sonnet | Scaffolds the Xcode project (new) or modifies the existing one. Implements views/models/services per the design. Runs `xcodebuild build` / `swift build` until it compiles. Creates feature branches, commits, pushes, and opens PRs. Addresses reviewer feedback. | Read, Write, Edit, Bash |
 | **ios-test-engineer** | Sonnet | Writes/updates unit and UI tests for new or changed functionality. Runs `xcodebuild test` until passing. Re-runs tests after reviewer-driven fixes if behavior changed. | Read, Write, Edit, Bash |
 | **ios-code-reviewer** | Sonnet | Reviews the PR via `gh pr diff`/`gh pr view`, posts comments via `gh pr review`/`gh pr comment`. Approves via `gh pr review --approve` once satisfied. | Read, Grep, Glob, Bash |
@@ -75,8 +75,9 @@ Options:
 - **Text-only (default/recommended)** — the UI Designer writes `docs/design.md` only (screen list, navigation, SwiftUI view hierarchy/component breakdown). The checkpoint after this phase is the user's design review.
 - **Figma** — in addition to `docs/design.md`, the UI Designer generates mockups in Figma. Before offering this option, the orchestrator checks that the Figma MCP server is available; if not, this option is omitted (text-only and Claude Design remain available). The UI Designer must follow the `/figma-use` skill before calling `use_figma`/`generate_figma_design` (per the Figma MCP server's own instructions), and links the resulting file from `docs/design.md` and the checkpoint summary.
 - **Claude Design (manual)** — the UI Designer writes `docs/design.md` as in the text-only case. At this phase's checkpoint, the orchestrator additionally presents a copy-pasteable summary of the screens/flows and instructions for the user to paste it into Claude Design (claude.ai) to generate visual mockups and review/iterate there. No automation or artifact capture happens on the orchestrator's side — the standard checkpoint choices (Continue/Make changes/Stop) apply as-is, with "Continue" understood to mean the user is satisfied (whether or not they used Claude Design) and `docs/design.md` remains the spec the Developer codes against.
+- **Bring your own designs** — the user already has designs from another tool (Sketch, screenshots of mockups, a Figma file they made themselves, an exported spec, etc.). The orchestrator asks the user for the relevant file paths/URLs/links, and the UI Designer reads them (images, PDFs, linked files) and translates them into `docs/design.md` (screen list, navigation, SwiftUI view hierarchy/component breakdown) referencing the original artifacts by path/URL — i.e. the UI Designer's role becomes "transcribe this existing design into our spec format" rather than "design from scratch." If the provided artifacts don't cover everything (e.g., missing screens or flows) or a source is unreadable (broken link, missing file), the UI Designer fills the gap itself and notes which parts were user-provided vs. its own additions in `docs/design.md` and the checkpoint summary. The checkpoint after this phase is the same design review as text-only, plus these provenance notes.
 
-The choice is recorded as `design_mode: "text" | "figma" | "claude_design"` in `state.json`. If the user doesn't express a preference, the orchestrator defaults to `"text"`.
+The choice is recorded as `design_mode: "text" | "figma" | "claude_design" | "bring_your_own"` in `state.json`. If the user doesn't express a preference, the orchestrator defaults to `"text"`. For `"bring_your_own"`, the provided file paths/URLs are recorded in `state.json` as `design_sources` (a list of strings) and passed to the UI Designer.
 
 ## Orchestration Flow
 
@@ -127,6 +128,7 @@ The choice is recorded as `design_mode: "text" | "figma" | "claude_design"` in `
   "review_round": 1,
   "screens_affected": true,
   "design_mode": "text",
+  "design_sources": [],
   "last_commit_sha": "a1b2c3d4...",
   "pr_url": "https://github.com/user/repo/pull/1",
   "open_risks": [
@@ -159,7 +161,8 @@ The choice is recorded as `design_mode: "text" | "figma" | "claude_design"` in `
 - `phase_status`: `"in_progress"` or `"complete"`.
 - `review_round`: current round of the PR review loop (see PR-Based Review Flow), reset to 0 before the first review.
 - `last_commit_sha`: HEAD of the project's default branch as of the last orchestrator update — used for drift detection.
-- `design_mode`: `"text"`, `"figma"`, or `"claude_design"` — see Design Mode. Only meaningful when `screens_affected` is `true`; otherwise unset.
+- `design_mode`: `"text"`, `"figma"`, `"claude_design"`, or `"bring_your_own"` — see Design Mode. Only meaningful when `screens_affected` is `true`; otherwise unset.
+- `design_sources`: list of file paths/URLs to user-provided designs, only populated when `design_mode` is `"bring_your_own"`; empty otherwise.
 - `open_risks`: list of risks/blockers raised by subagents that haven't been resolved or dismissed yet. Each entry has a stable `id` (e.g. `risk-1`, `risk-2`, incrementing), the `phase` that raised it (using the same short names as the `phase` field above), `raised_at`, and a `description`. Surfaced at every checkpoint until removed by `id` — either the user dismisses/resolves it at a checkpoint, or a later subagent's report references the `id` as resolved by its work.
 
 On resume, the orchestrator reads this file to determine where to pick up. Before continuing, it runs `git rev-parse HEAD` on the project's default branch and compares it to `last_commit_sha`:
