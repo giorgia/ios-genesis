@@ -4,9 +4,9 @@
 
 **Goal:** Build a Claude Code toolkit (6 subagent definitions + an orchestrator skill) that builds and extends iOS apps in other project directories, per `docs/superpowers/specs/2026-06-11-ios-orchestrator-design.md`.
 
-**Architecture:** Each subagent is a `.claude/agents/*.md` definition with a focused role, tool list, and model. The orchestrator is `.claude/skills/build-ios-app/SKILL.md`, which runs in the user's main session, interviews the user via `superpowers:brainstorming`, and sequences the subagents through the new-app or feature-addition flow with per-phase checkpoints. Supporting protocol details (state file schema, checkpoints, role boundaries, design mode, PR review flow, orchestration flow) live in `.claude/skills/build-ios-app/references/*.md`, kept separate so `SKILL.md` stays focused on the top-level sequencing logic.
+**Architecture:** Each subagent is a `agents/*.md` definition with a focused role, tool list, and model. The orchestrator is `skills/ios-genesis/SKILL.md`, which runs in the user's main session, interviews the user via `superpowers:brainstorming`, and sequences the subagents through the new-app or feature-addition flow with per-phase checkpoints. Supporting protocol details (state file schema, checkpoints, role boundaries, design mode, PR review flow, orchestration flow) live in `skills/ios-genesis/references/*.md`, kept separate so `SKILL.md` stays focused on the top-level sequencing logic.
 
-**Tech Stack:** Markdown agent/skill definitions (YAML frontmatter + prompt instructions) for Claude Code. No application code in this repo — it produces tooling that operates on *other* Swift/SwiftUI projects.
+**Tech Stack:** Markdown agent/skill definitions (YAML frontmatter + prompt instructions) for Claude Code, packaged as a local Claude Code plugin. No application code in this repo — it produces tooling that operates on *other* Swift/SwiftUI projects.
 
 ---
 
@@ -14,46 +14,52 @@
 
 ```
 iOSOrchestator/
-└── .claude/
-    ├── agents/
-    │   ├── ios-architect.md
-    │   ├── ios-ui-designer.md
-    │   ├── ios-developer.md
-    │   ├── ios-test-engineer.md
-    │   ├── ios-code-reviewer.md
-    │   └── ios-release-manager.md
-    └── skills/
-        └── build-ios-app/
-            ├── SKILL.md
-            └── references/
-                ├── state-schema.md
-                ├── checkpoints.md
-                ├── role-boundaries.md
-                ├── design-mode.md
-                ├── pr-review-flow.md
-                └── orchestration-flow.md
+├── .claude-plugin/
+│   ├── plugin.json
+│   └── marketplace.json
+├── agents/
+│   ├── ios-architect.md
+│   ├── ios-ui-designer.md
+│   ├── ios-developer.md
+│   ├── ios-test-engineer.md
+│   ├── ios-code-reviewer.md
+│   └── ios-release-manager.md
+└── skills/
+    └── ios-genesis/
+        ├── SKILL.md
+        └── references/
+            ├── state-schema.md
+            ├── checkpoints.md
+            ├── role-boundaries.md
+            ├── design-mode.md
+            ├── pr-review-flow.md
+            └── orchestration-flow.md
 ```
 
 - Each `agents/*.md` file is self-contained: frontmatter (name, description, tools, model) + a prompt that tells the agent its inputs, outputs, and role boundaries (from the spec's "Role Boundaries & Scope Discipline" table).
-- `SKILL.md` is the entry point (`/build-ios-app`) and contains the top-level control flow: parse args, detect mode, run the orchestrator interview, loop through phases referencing the `references/*.md` files for protocol details (state schema, checkpoint format, scope-check rules, design-mode question, PR review loop, and the full phase sequences for each mode).
+- `SKILL.md` is the entry point (`/ios-genesis`) and contains the top-level control flow: parse args, detect mode, run the orchestrator interview, loop through phases referencing the `references/*.md` files for protocol details (state schema, checkpoint format, scope-check rules, design-mode question, PR review loop, and the full phase sequences for each mode).
 - Splitting the protocol details into `references/` keeps `SKILL.md` readable as a sequencing/control-flow document, while each reference file documents one cross-cutting concern used at multiple points in the flow.
+- `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` package `agents/` and `skills/` as a local Claude Code plugin (see spec's "Packaging & Installation"), so `/ios-genesis` and the `ios-*` subagents are available from any Claude Code session after a one-time local install — not just sessions running from within this repo.
 
 ---
 
 ## Chunk 1: Project setup, ios-architect, ios-ui-designer
 
-### Task 1: Scaffold directory structure and .gitignore
+### Task 1: Scaffold directory structure, .gitignore, and plugin manifests
 
 **Files:**
-- Create: `.claude/agents/` (directory)
-- Create: `.claude/skills/build-ios-app/references/` (directory)
+- Create: `agents/` (directory)
+- Create: `skills/ios-genesis/references/` (directory)
 - Create: `.gitignore`
+- Create: `.claude-plugin/plugin.json`
+- Create: `.claude-plugin/marketplace.json`
 
 - [ ] **Step 1: Create the directories**
 
 ```bash
-mkdir -p /Users/giorgiamarenda/Projects/iOSOrchestator/.claude/agents
-mkdir -p /Users/giorgiamarenda/Projects/iOSOrchestator/.claude/skills/build-ios-app/references
+mkdir -p /Users/giorgiamarenda/Projects/iOSOrchestator/agents
+mkdir -p /Users/giorgiamarenda/Projects/iOSOrchestator/skills/ios-genesis/references
+mkdir -p /Users/giorgiamarenda/Projects/iOSOrchestator/.claude-plugin
 ```
 
 - [ ] **Step 2: Create .gitignore to exclude local Claude settings**
@@ -64,37 +70,72 @@ A `.claude/settings.local.json` already exists in the repo (untracked, with pers
 .claude/settings.local.json
 ```
 
-- [ ] **Step 3: Verify**
+- [ ] **Step 3: Create the plugin manifest**
+
+Create `.claude-plugin/plugin.json`:
+
+```json
+{
+  "name": "ios-genesis",
+  "description": "A team of specialist subagents (architect, UI designer, developer, test engineer, code reviewer, release manager) orchestrated by /ios-genesis to build new iOS apps or add features to existing ones, with per-phase checkpoints and a GitHub PR review loop.",
+  "version": "0.1.0",
+  "agents": "./agents",
+  "skills": "./skills"
+}
+```
+
+- [ ] **Step 4: Create the local marketplace manifest**
+
+Create `.claude-plugin/marketplace.json`:
+
+```json
+{
+  "name": "ios-orchestrator",
+  "owner": {
+    "name": "Giorgia Marenda"
+  },
+  "plugins": [
+    {
+      "name": "ios-genesis",
+      "source": "./",
+      "description": "Orchestrates a team of iOS specialist subagents via /ios-genesis."
+    }
+  ]
+}
+```
+
+- [ ] **Step 5: Verify**
 
 ```bash
-find /Users/giorgiamarenda/Projects/iOSOrchestator/.claude -type d
+find /Users/giorgiamarenda/Projects/iOSOrchestator/agents /Users/giorgiamarenda/Projects/iOSOrchestator/skills /Users/giorgiamarenda/Projects/iOSOrchestator/.claude-plugin -type d
+python3 -c "import json; json.load(open('.claude-plugin/plugin.json')); json.load(open('.claude-plugin/marketplace.json')); print('OK')"
 git status --porcelain
 ```
 
-Expected: the `find` output lists the four directories (`.claude`, `.claude/agents`, `.claude/skills`, `.claude/skills/build-ios-app`, `.claude/skills/build-ios-app/references`); `git status --porcelain` no longer shows `.claude/settings.local.json` as untracked (it's now ignored), and shows `.gitignore` as untracked.
+Expected: `find` lists `agents`, `skills`, `skills/ios-genesis`, `skills/ios-genesis/references`, and `.claude-plugin`; the `python3` command prints `OK` (both JSON files parse); `git status --porcelain` no longer shows `.claude/settings.local.json` as untracked (it's now ignored), and shows `.gitignore` and `.claude-plugin/` as untracked.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 cd /Users/giorgiamarenda/Projects/iOSOrchestator
-git add .gitignore
-git commit -m "Add .gitignore for local Claude settings"
+git add .gitignore .claude-plugin
+git commit -m "Scaffold plugin manifests and .gitignore for local Claude settings"
 ```
 
-(Empty directories aren't tracked by git, so only `.gitignore` is committed here — the `.claude/agents` and `.claude/skills/...` directories will be populated and committed in the following tasks.)
+(Empty directories aren't tracked by git, so only `.gitignore` and `.claude-plugin/` are committed here — `agents/` and `skills/...` will be populated and committed in the following tasks.)
 
 ---
 
 ### Task 2: ios-architect agent definition
 
 **Files:**
-- Create: `.claude/agents/ios-architect.md`
+- Create: `agents/ios-architect.md`
 
 This agent receives the orchestrator's interview output (requirements, chosen approach, design summary — from `superpowers:brainstorming`, see spec's "Orchestrator Interview") and turns it into `docs/architecture.md` (new app) or a scope summary (feature addition). It reports `screens_affected: true/false` back to the orchestrator.
 
 - [ ] **Step 1: Write the agent definition**
 
-Create `.claude/agents/ios-architect.md`:
+Create `agents/ios-architect.md`:
 
 ```markdown
 ---
@@ -192,7 +233,7 @@ End your response with a clearly delimited summary block:
 cd /Users/giorgiamarenda/Projects/iOSOrchestator
 python3 -c "
 import re, sys
-content = open('.claude/agents/ios-architect.md').read()
+content = open('agents/ios-architect.md').read()
 m = re.match(r'^---\n(.*?)\n---\n', content, re.DOTALL)
 assert m, 'no frontmatter found'
 import yaml
@@ -209,7 +250,7 @@ Expected: prints `OK: {...}` with no errors. If `yaml` isn't available, install 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add .claude/agents/ios-architect.md
+git add agents/ios-architect.md
 git commit -m "Add ios-architect agent definition"
 ```
 
@@ -218,13 +259,13 @@ git commit -m "Add ios-architect agent definition"
 ### Task 3: ios-ui-designer agent definition
 
 **Files:**
-- Create: `.claude/agents/ios-ui-designer.md`
+- Create: `agents/ios-ui-designer.md`
 
 This agent writes `docs/design.md` (screen list, navigation, view hierarchy). It's only dispatched when `screens_affected: true`. It handles four design modes (text, figma, claude_design, bring_your_own) — see the spec's "Design Mode" section, which Task 9 will turn into `references/design-mode.md`. For now, embed the mode-specific instructions directly in this agent's prompt (the reference doc in Chunk 3 will document the orchestrator-side question; this file documents what the agent does once a mode is chosen).
 
 - [ ] **Step 1: Write the agent definition**
 
-Create `.claude/agents/ios-ui-designer.md`:
+Create `agents/ios-ui-designer.md`:
 
 ```markdown
 ---
@@ -300,7 +341,7 @@ End your response with:
 cd /Users/giorgiamarenda/Projects/iOSOrchestator
 python3 -c "
 import re, yaml
-content = open('.claude/agents/ios-ui-designer.md').read()
+content = open('agents/ios-ui-designer.md').read()
 m = re.match(r'^---\n(.*?)\n---\n', content, re.DOTALL)
 assert m, 'no frontmatter found'
 fm = yaml.safe_load(m.group(1))
@@ -316,7 +357,7 @@ Expected: prints `OK: {...}` with no errors.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add .claude/agents/ios-ui-designer.md
+git add agents/ios-ui-designer.md
 git commit -m "Add ios-ui-designer agent definition"
 ```
 
@@ -331,13 +372,13 @@ git commit -m "Add ios-ui-designer agent definition"
 ### Task 4: ios-developer agent definition
 
 **Files:**
-- Create: `.claude/agents/ios-developer.md`
+- Create: `agents/ios-developer.md`
 
 This agent does the actual implementation work, plus all `gh`-based PR creation and review-comment fixes. It's dispatched multiple times across the flow with different `dispatch_type` values (see Orchestration Flow steps 3, 5, and the PR-Based Review Flow's Developer re-dispatch).
 
 - [ ] **Step 1: Write the agent definition**
 
-Create `.claude/agents/ios-developer.md`:
+Create `agents/ios-developer.md`:
 
 ```markdown
 ---
@@ -420,7 +461,7 @@ End your response with:
 cd /Users/giorgiamarenda/Projects/iOSOrchestator
 python3 -c "
 import re, yaml
-content = open('.claude/agents/ios-developer.md').read()
+content = open('agents/ios-developer.md').read()
 m = re.match(r'^---\n(.*?)\n---\n', content, re.DOTALL)
 assert m, 'no frontmatter found'
 fm = yaml.safe_load(m.group(1))
@@ -436,7 +477,7 @@ Expected: prints `OK: {...}` with no errors.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add .claude/agents/ios-developer.md
+git add agents/ios-developer.md
 git commit -m "Add ios-developer agent definition"
 ```
 
@@ -445,13 +486,13 @@ git commit -m "Add ios-developer agent definition"
 ### Task 5: ios-test-engineer agent definition
 
 **Files:**
-- Create: `.claude/agents/ios-test-engineer.md`
+- Create: `agents/ios-test-engineer.md`
 
 This agent writes/updates unit and UI tests and runs `xcodebuild test`. It's dispatched once per implementation phase, and again during the PR review loop if the Developer's review fixes changed behavior.
 
 - [ ] **Step 1: Write the agent definition**
 
-Create `.claude/agents/ios-test-engineer.md`:
+Create `agents/ios-test-engineer.md`:
 
 ```markdown
 ---
@@ -510,7 +551,7 @@ End your response with:
 cd /Users/giorgiamarenda/Projects/iOSOrchestator
 python3 -c "
 import re, yaml
-content = open('.claude/agents/ios-test-engineer.md').read()
+content = open('agents/ios-test-engineer.md').read()
 m = re.match(r'^---\n(.*?)\n---\n', content, re.DOTALL)
 assert m, 'no frontmatter found'
 fm = yaml.safe_load(m.group(1))
@@ -526,7 +567,7 @@ Expected: prints `OK: {...}` with no errors.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add .claude/agents/ios-test-engineer.md
+git add agents/ios-test-engineer.md
 git commit -m "Add ios-test-engineer agent definition"
 ```
 
@@ -535,13 +576,13 @@ git commit -m "Add ios-test-engineer agent definition"
 ### Task 6: ios-code-reviewer agent definition
 
 **Files:**
-- Create: `.claude/agents/ios-code-reviewer.md`
+- Create: `agents/ios-code-reviewer.md`
 
 This agent reviews the PR opened by the Developer, posting comments or approving via `gh`. It never edits code itself — fixes loop back through the Developer/Test Engineer (see PR-Based Review Flow).
 
 - [ ] **Step 1: Write the agent definition**
 
-Create `.claude/agents/ios-code-reviewer.md`:
+Create `agents/ios-code-reviewer.md`:
 
 ```markdown
 ---
@@ -598,7 +639,7 @@ End your response with:
 cd /Users/giorgiamarenda/Projects/iOSOrchestator
 python3 -c "
 import re, yaml
-content = open('.claude/agents/ios-code-reviewer.md').read()
+content = open('agents/ios-code-reviewer.md').read()
 m = re.match(r'^---\n(.*?)\n---\n', content, re.DOTALL)
 assert m, 'no frontmatter found'
 fm = yaml.safe_load(m.group(1))
@@ -614,7 +655,7 @@ Expected: prints `OK: {...}` with no errors.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add .claude/agents/ios-code-reviewer.md
+git add agents/ios-code-reviewer.md
 git commit -m "Add ios-code-reviewer agent definition"
 ```
 
@@ -629,13 +670,13 @@ git commit -m "Add ios-code-reviewer agent definition"
 ### Task 7: ios-release-manager agent definition
 
 **Files:**
-- Create: `.claude/agents/ios-release-manager.md`
+- Create: `agents/ios-release-manager.md`
 
 This is the cheapest agent (Haiku) — only dispatched for new apps (or on explicit request for feature additions), at the end of the flow.
 
 - [ ] **Step 1: Write the agent definition**
 
-Create `.claude/agents/ios-release-manager.md`:
+Create `agents/ios-release-manager.md`:
 
 ```markdown
 ---
@@ -707,7 +748,7 @@ End your response with:
 cd /Users/giorgiamarenda/Projects/iOSOrchestator
 python3 -c "
 import re, yaml
-content = open('.claude/agents/ios-release-manager.md').read()
+content = open('agents/ios-release-manager.md').read()
 m = re.match(r'^---\n(.*?)\n---\n', content, re.DOTALL)
 assert m, 'no frontmatter found'
 fm = yaml.safe_load(m.group(1))
@@ -723,7 +764,7 @@ Expected: prints `OK: {...}` with no errors.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add .claude/agents/ios-release-manager.md
+git add agents/ios-release-manager.md
 git commit -m "Add ios-release-manager agent definition"
 ```
 
@@ -732,13 +773,13 @@ git commit -m "Add ios-release-manager agent definition"
 ### Task 8: references/state-schema.md
 
 **Files:**
-- Create: `.claude/skills/build-ios-app/references/state-schema.md`
+- Create: `skills/ios-genesis/references/state-schema.md`
 
 This documents the `<project>/.ios-orchestrator/state.json` schema (spec's "State File" section) for `SKILL.md` to point to, including drift detection on resume.
 
 - [ ] **Step 1: Write the reference doc**
 
-Create `.claude/skills/build-ios-app/references/state-schema.md`:
+Create `skills/ios-genesis/references/state-schema.md`:
 
 ```markdown
 # State File Schema
@@ -811,8 +852,8 @@ On invocation, if `.ios-orchestrator/state.json` exists, the orchestrator reads 
 - [ ] **Step 2: Verify**
 
 ```bash
-test -f /Users/giorgiamarenda/Projects/iOSOrchestator/.claude/skills/build-ios-app/references/state-schema.md && echo "exists"
-grep -c "^## " /Users/giorgiamarenda/Projects/iOSOrchestator/.claude/skills/build-ios-app/references/state-schema.md
+test -f /Users/giorgiamarenda/Projects/iOSOrchestator/skills/ios-genesis/references/state-schema.md && echo "exists"
+grep -c "^## " /Users/giorgiamarenda/Projects/iOSOrchestator/skills/ios-genesis/references/state-schema.md
 ```
 
 Expected: prints `exists`, then a count of `4` (Schema, Field reference, Initialization, Resuming).
@@ -820,7 +861,7 @@ Expected: prints `exists`, then a count of `4` (Schema, Field reference, Initial
 - [ ] **Step 3: Commit**
 
 ```bash
-git add .claude/skills/build-ios-app/references/state-schema.md
+git add skills/ios-genesis/references/state-schema.md
 git commit -m "Add state-schema reference doc"
 ```
 
@@ -829,13 +870,13 @@ git commit -m "Add state-schema reference doc"
 ### Task 9: references/checkpoints.md
 
 **Files:**
-- Create: `.claude/skills/build-ios-app/references/checkpoints.md`
+- Create: `skills/ios-genesis/references/checkpoints.md`
 
 This documents the per-phase checkpoint procedure (spec's "Checkpoints" section): updating state, presenting the summary + Risks/Blockers, and the `AskUserQuestion` loop.
 
 - [ ] **Step 1: Write the reference doc**
 
-Create `.claude/skills/build-ios-app/references/checkpoints.md`:
+Create `skills/ios-genesis/references/checkpoints.md`:
 
 ```markdown
 # Checkpoints
@@ -876,8 +917,8 @@ Options: **Continue to the next phase** / **Make changes first** / **Stop here**
 - [ ] **Step 2: Verify**
 
 ```bash
-test -f /Users/giorgiamarenda/Projects/iOSOrchestator/.claude/skills/build-ios-app/references/checkpoints.md && echo "exists"
-grep -c "^## " /Users/giorgiamarenda/Projects/iOSOrchestator/.claude/skills/build-ios-app/references/checkpoints.md
+test -f /Users/giorgiamarenda/Projects/iOSOrchestator/skills/ios-genesis/references/checkpoints.md && echo "exists"
+grep -c "^## " /Users/giorgiamarenda/Projects/iOSOrchestator/skills/ios-genesis/references/checkpoints.md
 ```
 
 Expected: prints `exists`, then `4`.
@@ -885,7 +926,7 @@ Expected: prints `exists`, then `4`.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add .claude/skills/build-ios-app/references/checkpoints.md
+git add skills/ios-genesis/references/checkpoints.md
 git commit -m "Add checkpoints reference doc"
 ```
 
@@ -894,18 +935,18 @@ git commit -m "Add checkpoints reference doc"
 ### Task 10: references/role-boundaries.md
 
 **Files:**
-- Create: `.claude/skills/build-ios-app/references/role-boundaries.md`
+- Create: `skills/ios-genesis/references/role-boundaries.md`
 
 This documents the role-boundary table and the post-phase scope check (spec's "Role Boundaries & Scope Discipline" section).
 
 - [ ] **Step 1: Write the reference doc**
 
-Create `.claude/skills/build-ios-app/references/role-boundaries.md`:
+Create `skills/ios-genesis/references/role-boundaries.md`:
 
 ```markdown
 # Role Boundaries & Scope Discipline
 
-Each subagent's own prompt (`.claude/agents/*.md`) includes its role boundaries. This doc covers the orchestrator-side scope check that runs as part of every checkpoint (see `checkpoints.md`, step 2).
+Each subagent's own prompt (`agents/*.md`) includes its role boundaries. This doc covers the orchestrator-side scope check that runs as part of every checkpoint (see `checkpoints.md`, step 2).
 
 ## Role summary
 
@@ -953,8 +994,8 @@ Any changed file outside the expected patterns for that phase is **not reverted 
 - [ ] **Step 2: Verify**
 
 ```bash
-test -f /Users/giorgiamarenda/Projects/iOSOrchestator/.claude/skills/build-ios-app/references/role-boundaries.md && echo "exists"
-grep -c "^## " /Users/giorgiamarenda/Projects/iOSOrchestator/.claude/skills/build-ios-app/references/role-boundaries.md
+test -f /Users/giorgiamarenda/Projects/iOSOrchestator/skills/ios-genesis/references/role-boundaries.md && echo "exists"
+grep -c "^## " /Users/giorgiamarenda/Projects/iOSOrchestator/skills/ios-genesis/references/role-boundaries.md
 ```
 
 Expected: prints `exists`, then `2` (Role summary, Scope check).
@@ -962,7 +1003,7 @@ Expected: prints `exists`, then `2` (Role summary, Scope check).
 - [ ] **Step 3: Commit**
 
 ```bash
-git add .claude/skills/build-ios-app/references/role-boundaries.md
+git add skills/ios-genesis/references/role-boundaries.md
 git commit -m "Add role-boundaries reference doc"
 ```
 
@@ -971,13 +1012,13 @@ git commit -m "Add role-boundaries reference doc"
 ### Task 11: references/design-mode.md
 
 **Files:**
-- Create: `.claude/skills/build-ios-app/references/design-mode.md`
+- Create: `skills/ios-genesis/references/design-mode.md`
 
 This documents when/how the orchestrator asks the design-mode question and what each mode means for the UI Designer dispatch (spec's "Design Mode" section).
 
 - [ ] **Step 1: Write the reference doc**
 
-Create `.claude/skills/build-ios-app/references/design-mode.md`:
+Create `skills/ios-genesis/references/design-mode.md`:
 
 ```markdown
 # Design Mode
@@ -1010,7 +1051,7 @@ If the user doesn't express a preference, default to `design_mode: "text"`.
 
 ## Dispatching the UI Designer
 
-Pass `design_mode` (and `design_sources` if `bring_your_own`) to the UI Designer in its dispatch prompt - see `.claude/agents/ios-ui-designer.md` for how each mode affects its output.
+Pass `design_mode` (and `design_sources` if `bring_your_own`) to the UI Designer in its dispatch prompt - see `agents/ios-ui-designer.md` for how each mode affects its output.
 
 ## At the UI Designer's checkpoint
 
@@ -1022,8 +1063,8 @@ Pass `design_mode` (and `design_sources` if `bring_your_own`) to the UI Designer
 - [ ] **Step 2: Verify**
 
 ```bash
-test -f /Users/giorgiamarenda/Projects/iOSOrchestator/.claude/skills/build-ios-app/references/design-mode.md && echo "exists"
-grep -c "^## " /Users/giorgiamarenda/Projects/iOSOrchestator/.claude/skills/build-ios-app/references/design-mode.md
+test -f /Users/giorgiamarenda/Projects/iOSOrchestator/skills/ios-genesis/references/design-mode.md && echo "exists"
+grep -c "^## " /Users/giorgiamarenda/Projects/iOSOrchestator/skills/ios-genesis/references/design-mode.md
 ```
 
 Expected: prints `exists`, then `5` (When to ask, Before offering Figma, The question, Dispatching the UI Designer, At the UI Designer's checkpoint).
@@ -1031,7 +1072,7 @@ Expected: prints `exists`, then `5` (When to ask, Before offering Figma, The que
 - [ ] **Step 3: Commit**
 
 ```bash
-git add .claude/skills/build-ios-app/references/design-mode.md
+git add skills/ios-genesis/references/design-mode.md
 git commit -m "Add design-mode reference doc"
 ```
 
@@ -1040,13 +1081,13 @@ git commit -m "Add design-mode reference doc"
 ### Task 12: references/pr-review-flow.md
 
 **Files:**
-- Create: `.claude/skills/build-ios-app/references/pr-review-flow.md`
+- Create: `skills/ios-genesis/references/pr-review-flow.md`
 
 This documents PR creation, the Reviewer/Developer/Test-Engineer loop, and auto-merge (spec's "PR-Based Review Flow" section).
 
 - [ ] **Step 1: Write the reference doc**
 
-Create `.claude/skills/build-ios-app/references/pr-review-flow.md`:
+Create `skills/ios-genesis/references/pr-review-flow.md`:
 
 ```markdown
 # PR-Based Review Flow
@@ -1055,11 +1096,11 @@ Covers the `pr_creation`, `code_review`, and `merge` phases.
 
 ## Prerequisite: gh CLI authenticated
 
-Before reaching `pr_creation`, the orchestrator checks `gh auth status`. If not authenticated, surface a clear message to the user (e.g. "The `gh` CLI isn't authenticated - run `gh auth login`, then re-run `/build-ios-app` to resume from this point.") and stop. `state.json` is unchanged, so resuming re-enters at `pr_creation`.
+Before reaching `pr_creation`, the orchestrator checks `gh auth status`. If not authenticated, surface a clear message to the user (e.g. "The `gh` CLI isn't authenticated - run `gh auth login`, then re-run `/ios-genesis` to resume from this point.") and stop. `state.json` is unchanged, so resuming re-enters at `pr_creation`.
 
 ## pr_creation
 
-Dispatch `ios-developer` with `dispatch_type: create_pr` (see `.claude/agents/ios-developer.md`):
+Dispatch `ios-developer` with `dispatch_type: create_pr` (see `agents/ios-developer.md`):
 
 - **`new_app`**: `branch_name: "feature/initial-implementation"`. If the target project has no GitHub remote, checkpoint with the user first: ask (via `AskUserQuestion`) whether to create a GitHub repo (public or private) via `gh repo create`. Once a remote exists, proceed with the dispatch.
 - **`feature_addition`**: `branch_name: "feature/<slug>"`, where `<slug>` is derived from the change description (lowercase, spaces to hyphens, e.g. "add login screen" -> "add-login-screen").
@@ -1089,8 +1130,8 @@ Only reached if `code_review` resulted in `status: approved`. Run `gh pr merge <
 - [ ] **Step 2: Verify**
 
 ```bash
-test -f /Users/giorgiamarenda/Projects/iOSOrchestator/.claude/skills/build-ios-app/references/pr-review-flow.md && echo "exists"
-grep -c "^## " /Users/giorgiamarenda/Projects/iOSOrchestator/.claude/skills/build-ios-app/references/pr-review-flow.md
+test -f /Users/giorgiamarenda/Projects/iOSOrchestator/skills/ios-genesis/references/pr-review-flow.md && echo "exists"
+grep -c "^## " /Users/giorgiamarenda/Projects/iOSOrchestator/skills/ios-genesis/references/pr-review-flow.md
 ```
 
 Expected: prints `exists`, then `4`.
@@ -1098,7 +1139,7 @@ Expected: prints `exists`, then `4`.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add .claude/skills/build-ios-app/references/pr-review-flow.md
+git add skills/ios-genesis/references/pr-review-flow.md
 git commit -m "Add pr-review-flow reference doc"
 ```
 
@@ -1107,13 +1148,13 @@ git commit -m "Add pr-review-flow reference doc"
 ### Task 13: references/orchestration-flow.md
 
 **Files:**
-- Create: `.claude/skills/build-ios-app/references/orchestration-flow.md`
+- Create: `skills/ios-genesis/references/orchestration-flow.md`
 
 This is the top-level phase sequence for both modes (spec's "Orchestration Flow" section), tying together all the other reference docs. `SKILL.md` (Chunk 4) will be a short entry point that determines the mode and then follows this doc.
 
 - [ ] **Step 1: Write the reference doc**
 
-Create `.claude/skills/build-ios-app/references/orchestration-flow.md`:
+Create `skills/ios-genesis/references/orchestration-flow.md`:
 
 ```markdown
 # Orchestration Flow
@@ -1155,7 +1196,7 @@ The orchestrator (running in the user's main session) invokes the `superpowers:b
 
 ## Existing non-orchestrator project
 
-If `target_project_path` exists, contains an Xcode/SPM project, but has no `.ios-orchestrator/state.json`: treat as `feature_addition`, first run. After the orchestrator interview (step 0), initialize `state.json` (per `state-schema.md`'s Initialization section) before dispatching the Architect, and instruct the Architect (in its dispatch prompt) to do a quick codebase survey (it does this automatically per `.claude/agents/ios-architect.md`).
+If `target_project_path` exists, contains an Xcode/SPM project, but has no `.ios-orchestrator/state.json`: treat as `feature_addition`, first run. After the orchestrator interview (step 0), initialize `state.json` (per `state-schema.md`'s Initialization section) before dispatching the Architect, and instruct the Architect (in its dispatch prompt) to do a quick codebase survey (it does this automatically per `agents/ios-architect.md`).
 
 ## Resuming
 
@@ -1165,8 +1206,8 @@ See `state-schema.md`'s Resuming section for the drift-detection procedure. Once
 - [ ] **Step 2: Verify**
 
 ```bash
-test -f /Users/giorgiamarenda/Projects/iOSOrchestator/.claude/skills/build-ios-app/references/orchestration-flow.md && echo "exists"
-grep -c "^## " /Users/giorgiamarenda/Projects/iOSOrchestator/.claude/skills/build-ios-app/references/orchestration-flow.md
+test -f /Users/giorgiamarenda/Projects/iOSOrchestator/skills/ios-genesis/references/orchestration-flow.md && echo "exists"
+grep -c "^## " /Users/giorgiamarenda/Projects/iOSOrchestator/skills/ios-genesis/references/orchestration-flow.md
 ```
 
 Expected: prints `exists`, then `5` (New app, Feature addition, Existing non-orchestrator project, Resuming, plus Step 0's "## Step 0 (both modes): Orchestrator interview").
@@ -1174,7 +1215,7 @@ Expected: prints `exists`, then `5` (New app, Feature addition, Existing non-orc
 - [ ] **Step 3: Commit**
 
 ```bash
-git add .claude/skills/build-ios-app/references/orchestration-flow.md
+git add skills/ios-genesis/references/orchestration-flow.md
 git commit -m "Add orchestration-flow reference doc"
 ```
 
@@ -1186,30 +1227,30 @@ git commit -m "Add orchestration-flow reference doc"
 
 ## Chunk 4: SKILL.md and end-to-end validation
 
-### Task 14: build-ios-app SKILL.md
+### Task 14: ios-genesis SKILL.md
 
 **Files:**
-- Create: `.claude/skills/build-ios-app/SKILL.md`
+- Create: `skills/ios-genesis/SKILL.md`
 
-This is the `/build-ios-app` entry point. It stays short and focused on top-level control flow (parse args, determine mode, resume-or-init state, run the interview, then follow `orchestration-flow.md`), delegating all protocol details to the `references/*.md` files written in Chunk 3.
+This is the `/ios-genesis` entry point. It stays short and focused on top-level control flow (parse args, determine mode, resume-or-init state, run the interview, then follow `orchestration-flow.md`), delegating all protocol details to the `references/*.md` files written in Chunk 3.
 
 - [ ] **Step 1: Write the skill definition**
 
-Create `.claude/skills/build-ios-app/SKILL.md`:
+Create `skills/ios-genesis/SKILL.md`:
 
 ```markdown
 ---
-name: build-ios-app
+name: ios-genesis
 description: Orchestrates a team of specialist subagents (architect, UI designer, developer, test engineer, code reviewer, release manager) to build a new iOS app or add a feature to an existing one, with per-phase user checkpoints and a GitHub PR review loop.
 ---
 
-# Build iOS App
+# iOS Genesis
 
-You are the orchestrator for an iOS app development pipeline. You run in the user's main session (not as a subagent) - you are the only part of this toolkit that talks to the user directly and the only part that invokes `superpowers:brainstorming`. Specialist work is delegated to the subagents in `.claude/agents/` via the `Agent` tool.
+You are the orchestrator for an iOS app development pipeline. You run in the user's main session (not as a subagent) - you are the only part of this toolkit that talks to the user directly and the only part that invokes `superpowers:brainstorming`. Specialist work is delegated to the subagents in `agents/` via the `Agent` tool.
 
 ## Usage
 
-`/build-ios-app <target-project-path> <description>`
+`/ios-genesis <target-project-path> <description>`
 
 - `target-project-path`: absolute or relative path to the iOS project directory (may not exist yet, for a new app).
 - `description`: a short description of what to build or change - the starting point for the orchestrator interview (step 0).
@@ -1243,20 +1284,20 @@ Load these as needed during the run - don't read them all upfront:
 ## Notes
 
 - Subagents have no memory between dispatches - every dispatch must include all context the subagent needs (relevant `state.json` fields, prior artifacts/summaries, user feedback for "Make changes first" re-dispatches, reviewer comments for review-loop re-dispatches).
-- If the user chooses "Stop here" at any checkpoint, end the session normally - `state.json` is already up to date for a future `/build-ios-app <target_project_path> ...` invocation to resume.
+- If the user chooses "Stop here" at any checkpoint, end the session normally - `state.json` is already up to date for a future `/ios-genesis <target_project_path> ...` invocation to resume.
 ```
 
 - [ ] **Step 2: Verify**
 
 ```bash
-test -f /Users/giorgiamarenda/Projects/iOSOrchestator/.claude/skills/build-ios-app/SKILL.md && echo "exists"
+test -f /Users/giorgiamarenda/Projects/iOSOrchestator/skills/ios-genesis/SKILL.md && echo "exists"
 python3 -c "
 import re, yaml
-content = open('/Users/giorgiamarenda/Projects/iOSOrchestator/.claude/skills/build-ios-app/SKILL.md').read()
+content = open('/Users/giorgiamarenda/Projects/iOSOrchestator/skills/ios-genesis/SKILL.md').read()
 m = re.match(r'^---\n(.*?)\n---\n', content, re.DOTALL)
 assert m, 'no frontmatter found'
 fm = yaml.safe_load(m.group(1))
-assert fm['name'] == 'build-ios-app'
+assert fm['name'] == 'ios-genesis'
 assert 'description' in fm
 print('OK:', fm)
 "
@@ -1267,8 +1308,8 @@ Expected: prints `exists`, then `OK: {...}`.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add .claude/skills/build-ios-app/SKILL.md
-git commit -m "Add build-ios-app orchestrator skill"
+git add skills/ios-genesis/SKILL.md
+git commit -m "Add ios-genesis orchestrator skill"
 ```
 
 ---
@@ -1277,11 +1318,22 @@ git commit -m "Add build-ios-app orchestrator skill"
 
 **Files:** none (this task runs the completed toolkit against a scratch project; no files in this repo are modified)
 
-Per the spec's "Validation" section: there's no traditional unit test suite for this project (it produces agent/skill *definitions*). Validation is a real end-to-end dry run of `/build-ios-app` against a small throwaway app, confirming each phase runs, produces the expected docs, the PR review loop functions, and the final app builds and passes tests.
+Per the spec's "Validation" section: there's no traditional unit test suite for this project (it produces agent/skill *definitions*). Validation is a real end-to-end dry run of `/ios-genesis` against a small throwaway app, confirming each phase runs, produces the expected docs, the PR review loop functions, and the final app builds and passes tests.
 
-This task is **manual/interactive** - it requires actually running `/build-ios-app` and walking through the checkpoints. Run it from a session with this repo's `.claude/agents/` and `.claude/skills/` available (i.e. from within `/Users/giorgiamarenda/Projects/iOSOrchestator`, or with this repo's `.claude/` directory accessible to the session).
+This task is **manual/interactive** - it requires actually running `/ios-genesis` and walking through the checkpoints.
 
-- [ ] **Step 1: Prepare a scratch directory and GitHub repo**
+- [ ] **Step 1: Install the plugin locally**
+
+From any Claude Code session (per spec's "Packaging & Installation"):
+
+```
+/plugin marketplace add /Users/giorgiamarenda/Projects/iOSOrchestator
+/plugin install ios-genesis@ios-orchestrator
+```
+
+Expected: `/ios-genesis` and the six `ios-*` subagents are listed as available (e.g. via `/agents` or `/help`), in a session whose working directory is *not* `iOSOrchestator` - confirming the plugin doesn't depend on running from within this repo.
+
+- [ ] **Step 2: Prepare a scratch directory and GitHub repo**
 
 Choose (or create) a scratch directory outside this repo, e.g. `/Users/giorgiamarenda/Projects/scratch/ios-orchestrator-counter-app`. Per the spec, to avoid creating throwaway public repos on every dry run, use a **pre-existing private scratch repo** (create it once, reuse across dry runs):
 
@@ -1294,17 +1346,17 @@ gh repo create <your-github-username>/ios-orchestrator-scratch --private --sourc
 
 (If the scratch repo already exists from a previous dry run, just `cd` into a clean local clone of it instead of `git init` + `gh repo create`.)
 
-- [ ] **Step 2: Run `/build-ios-app` for a single-screen counter app**
+- [ ] **Step 3: Run `/ios-genesis` for a single-screen counter app**
 
 ```
-/build-ios-app /Users/giorgiamarenda/Projects/scratch/ios-orchestrator-counter-app "A simple single-screen iOS counter app: a number, plus and minus buttons to increment/decrement it, and a reset button."
+/ios-genesis /Users/giorgiamarenda/Projects/scratch/ios-orchestrator-counter-app "A simple single-screen iOS counter app: a number, plus and minus buttons to increment/decrement it, and a reset button."
 ```
 
-- [ ] **Step 3: Walk through the orchestrator interview (step 0)**
+- [ ] **Step 4: Walk through the orchestrator interview (step 0)**
 
 Confirm: the orchestrator invokes `superpowers:brainstorming`, asks clarifying questions one at a time, proposes approaches, and presents a design for approval - without writing to `docs/superpowers/specs/` or invoking `writing-plans` (per `orchestration-flow.md`'s adapted terminal steps).
 
-- [ ] **Step 4: Walk through architect -> ui_designer -> developer -> test_engineer**
+- [ ] **Step 5: Walk through architect -> ui_designer -> developer -> test_engineer**
 
 At each checkpoint, confirm:
 - `docs/architecture.md` is written (architect) with a "Screens" section listing at least one screen, and `screens_affected: true` is reported.
@@ -1315,7 +1367,7 @@ At each checkpoint, confirm:
 - `state.json` is updated correctly after each phase (`phase`, `phase_status`, `phases_completed`, `last_commit_sha` where applicable) - inspect `.ios-orchestrator/state.json` directly to confirm.
 - The Risks/Blockers subsection appears at each checkpoint (even if "none").
 
-- [ ] **Step 5: Walk through pr_creation -> code_review -> merge**
+- [ ] **Step 6: Walk through pr_creation -> code_review -> merge**
 
 Confirm:
 - A feature branch (`feature/initial-implementation`) is created, committed, pushed, and a PR is opened against the scratch repo; `pr_url` is set in `state.json`.
@@ -1323,11 +1375,11 @@ Confirm:
 - If changes are requested, confirm the developer (and test engineer, if applicable) are re-dispatched with the reviewer's comments, push a fix, and the reviewer re-reviews (`review_round` increments in `state.json`).
 - Once approved, confirm `gh pr merge --squash` runs and the PR is merged on GitHub.
 
-- [ ] **Step 6: Walk through release_manager**
+- [ ] **Step 7: Walk through release_manager**
 
 Confirm `docs/release-checklist.md` is written with Versioning/Info.plist/App Icon/App Store Readiness sections reflecting the actual scratch project.
 
-- [ ] **Step 7: Confirm final state and clean up**
+- [ ] **Step 8: Confirm final state and clean up**
 
 - Confirm the orchestrator reports the run complete with a final summary.
 - Confirm `.ios-orchestrator/state.json`'s `open_risks` is either empty or contains only items the user is aware of.
@@ -1335,4 +1387,4 @@ Confirm `docs/release-checklist.md` is written with Versioning/Info.plist/App Ic
 
 ---
 
-**End of Chunk 4. End of plan.** All 6 agent definitions, the `build-ios-app` skill, and its reference docs are complete and committed. Task 15 is the final validation pass before considering the toolkit ready for real use.
+**End of Chunk 4. End of plan.** All 6 agent definitions, the `ios-genesis` skill, and its reference docs are complete and committed. Task 15 is the final validation pass before considering the toolkit ready for real use.
