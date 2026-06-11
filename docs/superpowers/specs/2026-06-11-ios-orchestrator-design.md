@@ -33,13 +33,17 @@ State for resumability lives in the target project at `<target-project>/.ios-orc
 
 ## Checkpoints
 
+Each subagent reports back to the orchestrator with a short summary of what it did, plus any **risks** (e.g., "this approach assumes X, which may need revisiting") or **blockers** (e.g., "couldn't find an API key for the push notification service — feature is stubbed out") it identified during the phase. Both lists may be empty.
+
 After each phase completes, the orchestrator:
 
-1. Updates `.ios-orchestrator/state.json` (see State File below).
-2. Presents a brief summary of what the phase produced or changed (e.g., "Architect wrote `docs/architecture.md` — 3 modules: ..." or "Developer implemented X, build succeeded").
+1. Updates `.ios-orchestrator/state.json` (see State File below), including any new entries in `open_risks`.
+2. Presents a brief summary of what the phase produced or changed (e.g., "Architect wrote `docs/architecture.md` — 3 modules: ..." or "Developer implemented X, build succeeded"), followed by a **Risks/Blockers** subsection listing all *currently open* items from `open_risks` (not just ones raised this phase) — so stakeholders see the cumulative picture, not just this phase's news. If `open_risks` is empty, this subsection reads "Risks/Blockers: none".
 3. Asks the user via `AskUserQuestion`: **Continue to the next phase / Make changes first / Stop here**.
    - "Make changes first" lets the user give feedback, which the orchestrator relays to the same agent for a follow-up dispatch before re-presenting the checkpoint.
    - "Stop here" ends the run; state is already saved for resuming later.
+
+An `open_risks` entry is removed in two ways: (a) the user resolves or dismisses it as part of checkpoint feedback (referencing it by `id`), or (b) a later subagent's report explicitly references the `id` and states it's been resolved by its work (e.g., the developer found the missing API key and un-stubbed the feature). Entries are never silently dropped — only removed via one of these two explicit paths.
 
 ## Subagent Roster
 
@@ -112,6 +116,14 @@ Before dispatching the Architect, the orchestrator (running in the user's main s
   "screens_affected": true,
   "last_commit_sha": "a1b2c3d4...",
   "pr_url": "https://github.com/user/repo/pull/1",
+  "open_risks": [
+    {
+      "id": "risk-1",
+      "phase": "developer",
+      "raised_at": "2026-06-11T10:45:00Z",
+      "description": "No push notification API key found — feature stubbed out pending credentials."
+    }
+  ],
   "phases_completed": [
     {
       "phase": "architect",
@@ -134,6 +146,7 @@ Before dispatching the Architect, the orchestrator (running in the user's main s
 - `phase_status`: `"in_progress"` or `"complete"`.
 - `review_round`: current round of the PR review loop (see PR-Based Review Flow), reset to 0 before the first review.
 - `last_commit_sha`: HEAD of the project's default branch as of the last orchestrator update — used for drift detection.
+- `open_risks`: list of risks/blockers raised by subagents that haven't been resolved or dismissed yet. Each entry has a stable `id` (e.g. `risk-1`, `risk-2`, incrementing), the `phase` that raised it (using the same short names as the `phase` field above), `raised_at`, and a `description`. Surfaced at every checkpoint until removed by `id` — either the user dismisses/resolves it at a checkpoint, or a later subagent's report references the `id` as resolved by its work.
 
 On resume, the orchestrator reads this file to determine where to pick up. Before continuing, it runs `git rev-parse HEAD` on the project's default branch and compares it to `last_commit_sha`:
 
