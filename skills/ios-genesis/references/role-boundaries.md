@@ -23,11 +23,13 @@ For `bring_your_own` design mode, the files the UI Designer *reads* (per `design
 
 ### How to check
 
-Whether the orchestrator uses `git status --porcelain` (uncommitted changes) or a diff against `last_commit_sha` (committed changes) depends on whether the phase commits its own work:
+If `target_project_path` doesn't exist yet, or exists but isn't a git repository yet, skip the scope check entirely for that phase - there's no git history to check against. This is expected for `new_app`'s `architect`, `ui_designer`, and `developer` (`implement`) phases, since the repo isn't created until `pr_creation`'s `git init` (see `agents/ios-developer.md`).
 
-- **architect, ui_designer, test_engineer, release_manager**: these phases don't commit - run `git status --porcelain` in `target_project_path` and check the listed files.
-- **developer, pr_creation**: the Developer commits and pushes as part of these phases, so `git status --porcelain` may be clean - run `git diff --name-only <last_commit_sha> HEAD` using the **pre-checkpoint** value of `last_commit_sha` (i.e. capture it before `checkpoints.md` step 1 overwrites it), then let step 1 update `last_commit_sha` to the new HEAD as usual.
-- **code_review, merge**: no local file changes expected from either - skip the scope check entirely. (`merge`'s `gh pr merge` changes the remote default branch, but that's the intended outcome, not a violation.)
+Otherwise, whether the orchestrator uses `git status --porcelain` (uncommitted changes) or a diff against `last_commit_sha` (committed changes) depends on whether the phase commits its own work:
+
+- **architect, ui_designer, developer, test_engineer, release_manager**: none of these phases commit (the Developer's `implement` dispatch explicitly does not commit/push) - run `git status --porcelain` in `target_project_path` and check the listed files.
+- **pr_creation**: the Developer commits and pushes as part of this phase (including, for `new_app`, the one-time `git init` + initial commit), so `git status --porcelain` may be clean - run `git diff --name-only <last_commit_sha> HEAD` using the **pre-checkpoint** value of `last_commit_sha` (i.e. capture it before `checkpoints.md` step 1 overwrites it; for `new_app` this will be unset/empty since the repo didn't exist before this phase), then let step 1 update `last_commit_sha` to the new HEAD as usual.
+- **code_review, merge**: no local file changes expected from either - skip the scope check entirely. (`address_review` commits during `code_review` and `merge`'s `gh pr merge` change HEAD/the remote default branch, but that's the intended outcome, not a violation.)
 
 ### Expected paths per phase
 
@@ -36,7 +38,7 @@ Whether the orchestrator uses `git status --porcelain` (uncommitted changes) or 
 | architect | `docs/architecture.md` |
 | ui_designer | `docs/design.md` (Figma/Claude Design mockups are external, not local files) |
 | developer | Source/project files (`*.swift`, `Package.swift`, `*.xcodeproj`/`*.xcworkspace`, asset catalogs) - not `docs/architecture.md` or `docs/design.md` |
-| test_engineer | Test target files (`*Tests.swift` or equivalent) |
+| test_engineer | Test target files (`*Tests.swift` or equivalent), plus `Package.swift`/`.xcodeproj` edits when registering a newly created test target (new app only) |
 | pr_creation | Same as `developer` (branch/commit/push only - no new file changes beyond what the `developer` phase already produced) |
 | release_manager | `docs/release-checklist.md` only (reads `Info.plist`, project settings, and asset catalogs as inputs without modifying them, same as the `bring_your_own` `design_sources` carve-out above) |
 

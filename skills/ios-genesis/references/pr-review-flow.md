@@ -11,6 +11,7 @@ Before reaching `pr_creation`, the orchestrator checks `gh auth status`. If not 
 Dispatch `ios-developer` with `dispatch_type: create_pr` (see `agents/ios-developer.md`):
 
 - **`new_app`**: `branch_name: "feature/initial-implementation"`. If the target project has no GitHub remote, checkpoint with the user first: ask (via `AskUserQuestion`) whether to create a GitHub repo (public or private) via `gh repo create`. Once a remote exists, proceed with the dispatch.
+- **`feature_addition`** with no GitHub remote (a pre-existing local-only project): same checkpoint as above - ask via `AskUserQuestion` whether to create a GitHub repo via `gh repo create` (or add an existing remote with `git remote add`). Once a remote exists, proceed with the dispatch.
 - **`feature_addition`**: `branch_name: "feature/<slug>"`, where `<slug>` is derived from the change description (lowercase, spaces to hyphens, e.g. "add login screen" -> "add-login-screen").
 - `pr_description_context`: build from `architecture_summary`, `design_summary` (if applicable), and the Developer's `summary` from its `implement` dispatch report (`phases_completed`'s most recent `developer` entry).
 
@@ -19,11 +20,11 @@ After the dispatch, run the `developer`/`pr_creation` scope check (see `role-bou
 ## code_review loop
 
 1. Set `review_round` to 1 in `state.json` (it starts at 0).
-2. Dispatch `ios-code-reviewer` with `pr_url`, `review_round`, `architecture_summary`, `design_summary` (if applicable).
+2. Dispatch `ios-code-reviewer` with `target_project_path`, `pr_url`, `review_round`, `architecture_summary`, `design_summary` (if applicable).
 3. If the report's `status: approved` -> proceed to `merge`.
 4. If `status: changes_requested`:
-   a. Dispatch `ios-developer` with `dispatch_type: address_review`, passing `reviewer_comments` (verbatim from the reviewer's report) and `work_summary` (built from `state.json`'s `phases_completed`).
-   b. If the developer's changes affect behavior (use judgment based on the developer's report summary), dispatch `ios-test-engineer` with `dispatch_type: retest`, passing `reviewer_comments` and the developer's `summary`.
+   a. Dispatch `ios-developer` with `dispatch_type: address_review`, plus its always-required fields (`mode`, `target_project_path`, `architecture_summary`, `design_summary` if applicable), `reviewer_comments` (verbatim from the reviewer's report), and `work_summary` (built from `state.json`'s `phases_completed`).
+   b. If the developer's changes affect behavior (use judgment based on the developer's report summary), dispatch `ios-test-engineer` with `dispatch_type: retest`, plus its always-required fields (`mode`, `target_project_path`, `architecture_summary`, `design_summary` if applicable), `reviewer_comments`, and `developer_summary` (the developer's report `summary` from step 4a).
    c. If `review_round == 1`: increment to 2, pass `previous_comments` (the round-1 reviewer's comments) to the reviewer, and go back to step 2.
    d. If `review_round == 2` and issues remain: stop looping. Surface the unresolved comments to the user at the checkpoint (do not proceed to `merge` automatically) and let the user decide via the standard checkpoint options.
 5. Run the standard checkpoint (`checkpoints.md`) after the loop concludes (whether approved or stopped at round 2). In both cases `phase_status` is set to `"complete"` for `code_review` (per `checkpoints.md` step 1) - even when stopped at round 2 with unresolved issues, since the run can be resumed and `code_review` re-entered manually later if the user addresses the remaining comments outside the orchestrator.

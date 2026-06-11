@@ -45,8 +45,8 @@ Additional input fields:
 - `pr_description_context`: a short summary of the architecture/design/implementation to include in the PR description
 
 Steps:
-1. Create and check out `branch_name` from the project's default branch.
-2. Stage and commit all implementation changes with a descriptive commit message.
+1. Create and check out `branch_name` from the project's default branch. **`new_app` exception**: if `target_project_path` is not yet a git repository (no `.git` directory — expected for a brand-new project, since `implement` doesn't create one), run `git init` first and create an initial commit of the scaffolded project produced by `implement` before creating `branch_name`. This establishes the default branch that `branch_name` is created from.
+2. Stage and commit all implementation changes with a descriptive commit message. (For `new_app`, if step 1's initial commit already captured everything and there's nothing left to commit, skip this step.)
 3. Push the branch to the remote (`git push -u origin <branch_name>`). Assume the remote already exists and is configured — the orchestrator handles `gh repo create` separately if needed.
 4. Open a PR via `gh pr create`, with a title summarizing the change and a body built from `pr_description_context` (reference `docs/architecture.md` and `docs/design.md` if they exist).
 5. Report the PR URL back to the orchestrator.

@@ -6,10 +6,11 @@ After every phase (subagent dispatch) completes, the orchestrator runs this proc
 
 - Set `phase` to the phase that just ran, `phase_status: "complete"`.
 - Append an entry to `phases_completed` (with `phase`, `completed_at`, `summary` from the subagent's report, and `artifact`).
-- For `developer`/`pr_creation` phases, update `last_commit_sha` to the new `git rev-parse HEAD`.
+- For `pr_creation`, `code_review`, and `merge` phases, update `last_commit_sha` to the current `git rev-parse HEAD` - this captures, respectively, the branch/PR commit (and, for `new_app`, the `git init` initial commit) at `pr_creation`, any `address_review` fixes pushed during the `code_review` loop, and the squash-merge commit at `merge`. (`developer`/`implement` never commits, so its checkpoint doesn't touch `last_commit_sha`.)
 - For `pr_creation`, set `pr_url`.
 - For `code_review`, persist `review_round` as already set by the `code_review` loop (see `pr-review-flow.md`) - this checkpoint runs once after the loop concludes, so do not increment it again here. It is monotonic and capped at 2 (see `state-schema.md`).
 - If the subagent's report includes `screens_affected` (architect only), set it.
+- For `architect` in `feature_addition` mode (no file artifact - see `agents/ios-architect.md`), additionally persist the Architect's full scope-summary text as `architecture_summary` in `state.json`, separate from the short `summary` stored in `phases_completed`. Later phases (`ui_designer`, `developer`, `test_engineer`, `code_reviewer`) need this full text and the Architect has no memory to re-derive it.
 - For each risk/blocker in the subagent's report, append a new entry to `open_risks` with the next `risk-N` id, `phase` set to the current phase, `raised_at` set to the current time, and the reported `description`.
 - If the subagent's report references an existing `open_risks` entry's `id` as resolved, remove that entry from `open_risks`.
 
