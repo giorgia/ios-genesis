@@ -32,6 +32,6 @@ Pass `design_mode` (and `design_sources` if `bring_your_own`) to the UI Designer
 
 ## At the UI Designer's checkpoint
 
-- **text / bring_your_own**: standard checkpoint (summary + Risks/Blockers + Continue/Make changes/Stop). For `bring_your_own`, the summary additionally notes which screens came from `design_sources` vs. were filled in by the UI Designer (per its report's `design_mode_extra` / provenance notes in `docs/design.md`).
+- **text / bring_your_own**: standard checkpoint (summary + Risks/Blockers + Continue/Make changes/Stop). For `bring_your_own`, the summary additionally notes which screens came from `design_sources` vs. were filled in by the UI Designer, per the per-screen provenance annotations in `docs/design.md` (`design_mode_extra` will be `"none"` for this mode).
 - **figma**: standard checkpoint, plus the summary includes the Figma file link from the UI Designer's report (`design_mode_extra`).
 - **claude_design**: standard checkpoint, plus the orchestrator additionally presents the copy-pasteable screen/flow summary from the UI Designer's report (`design_mode_extra`) along with instructions for the user to paste it into Claude Design (claude.ai) to generate visual mockups and iterate there. No automation or artifact capture happens on the orchestrator's side. "Continue" means the user is satisfied with `docs/design.md` as the spec the Developer will code against, whether or not they used Claude Design.
