@@ -1181,3 +1181,158 @@ git commit -m "Add orchestration-flow reference doc"
 ---
 
 **End of Chunk 3.** Next: dispatch the plan-document-reviewer for this chunk before proceeding to Chunk 4 (SKILL.md, end-to-end validation).
+
+---
+
+## Chunk 4: SKILL.md and end-to-end validation
+
+### Task 14: build-ios-app SKILL.md
+
+**Files:**
+- Create: `.claude/skills/build-ios-app/SKILL.md`
+
+This is the `/build-ios-app` entry point. It stays short and focused on top-level control flow (parse args, determine mode, resume-or-init state, run the interview, then follow `orchestration-flow.md`), delegating all protocol details to the `references/*.md` files written in Chunk 3.
+
+- [ ] **Step 1: Write the skill definition**
+
+Create `.claude/skills/build-ios-app/SKILL.md`:
+
+```markdown
+---
+name: build-ios-app
+description: Orchestrates a team of specialist subagents (architect, UI designer, developer, test engineer, code reviewer, release manager) to build a new iOS app or add a feature to an existing one, with per-phase user checkpoints and a GitHub PR review loop.
+---
+
+# Build iOS App
+
+You are the orchestrator for an iOS app development pipeline. You run in the user's main session (not as a subagent) - you are the only part of this toolkit that talks to the user directly and the only part that invokes `superpowers:brainstorming`. Specialist work is delegated to the subagents in `.claude/agents/` via the `Agent` tool.
+
+## Usage
+
+`/build-ios-app <target-project-path> <description>`
+
+- `target-project-path`: absolute or relative path to the iOS project directory (may not exist yet, for a new app).
+- `description`: a short description of what to build or change - the starting point for the orchestrator interview (step 0).
+
+## Reference docs
+
+Load these as needed during the run - don't read them all upfront:
+
+- `references/state-schema.md` - `.ios-orchestrator/state.json` schema, initialization, and resuming/drift-detection
+- `references/checkpoints.md` - the per-phase checkpoint procedure (update state, scope check, summarize, ask Continue/Make changes/Stop)
+- `references/role-boundaries.md` - role summary table and the scope-check details used by checkpoints
+- `references/design-mode.md` - the design-mode question and its effect on the UI Designer dispatch
+- `references/pr-review-flow.md` - PR creation, the review loop, and auto-merge
+- `references/orchestration-flow.md` - the full phase sequence for `new_app` and `feature_addition`, and the orchestrator interview (step 0)
+
+## Top-level control flow
+
+1. **Resolve `target_project_path`** from the first argument.
+
+2. **Determine mode and initial state:**
+   - If `<target_project_path>/.ios-orchestrator/state.json` exists: this is a **resume**. Read it and follow `state-schema.md`'s "Resuming" procedure (drift check via `git rev-parse HEAD` vs `last_commit_sha`), then jump to the recorded `phase` in `orchestration-flow.md` and continue from there - **skip step 3 (interview)**, since `interview_output` was already captured and acted on in the prior run.
+   - Else if `<target_project_path>` exists and contains an Xcode/SPM project but no state file: this is **feature addition, first run** (see `orchestration-flow.md`'s "Existing non-orchestrator project"). Continue to step 3, then initialize `state.json` with `mode: "feature_addition"` per `state-schema.md` before dispatching the Architect.
+   - Else (path doesn't exist, or exists but is empty/non-project): this is **new app, first run**. Continue to step 3, then initialize `state.json` with `mode: "new_app"`.
+
+3. **Orchestrator interview**: invoke `superpowers:brainstorming` as described in `orchestration-flow.md`'s "Step 0", using `description` (the second argument) as the starting point for the conversation. The result is `interview_output`, passed to the Architect.
+
+4. **Run the phase sequence** in `orchestration-flow.md` for the determined mode (`new_app` or `feature_addition`), starting at `architect` (or at the resumed `phase`, if step 2 was a resume). After each phase, run the full checkpoint procedure from `checkpoints.md` before moving on.
+
+5. **Run completes** when the final phase's checkpoint (`release_manager` for `new_app`, or `merge`/`release_manager` for `feature_addition` - see `orchestration-flow.md`) is presented and the user does not choose to continue further (there is no next phase). Tell the user the run is complete and summarize the final state (PR merged, docs written, any remaining `open_risks`).
+
+## Notes
+
+- Subagents have no memory between dispatches - every dispatch must include all context the subagent needs (relevant `state.json` fields, prior artifacts/summaries, user feedback for "Make changes first" re-dispatches, reviewer comments for review-loop re-dispatches).
+- If the user chooses "Stop here" at any checkpoint, end the session normally - `state.json` is already up to date for a future `/build-ios-app <target_project_path> ...` invocation to resume.
+```
+
+- [ ] **Step 2: Verify**
+
+```bash
+test -f /Users/giorgiamarenda/Projects/iOSOrchestator/.claude/skills/build-ios-app/SKILL.md && echo "exists"
+python3 -c "
+import re, yaml
+content = open('/Users/giorgiamarenda/Projects/iOSOrchestator/.claude/skills/build-ios-app/SKILL.md').read()
+m = re.match(r'^---\n(.*?)\n---\n', content, re.DOTALL)
+assert m, 'no frontmatter found'
+fm = yaml.safe_load(m.group(1))
+assert fm['name'] == 'build-ios-app'
+assert 'description' in fm
+print('OK:', fm)
+"
+```
+
+Expected: prints `exists`, then `OK: {...}`.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add .claude/skills/build-ios-app/SKILL.md
+git commit -m "Add build-ios-app orchestrator skill"
+```
+
+---
+
+### Task 15: End-to-end validation dry run
+
+**Files:** none (this task runs the completed toolkit against a scratch project; no files in this repo are modified)
+
+Per the spec's "Validation" section: there's no traditional unit test suite for this project (it produces agent/skill *definitions*). Validation is a real end-to-end dry run of `/build-ios-app` against a small throwaway app, confirming each phase runs, produces the expected docs, the PR review loop functions, and the final app builds and passes tests.
+
+This task is **manual/interactive** - it requires actually running `/build-ios-app` and walking through the checkpoints. Run it from a session with this repo's `.claude/agents/` and `.claude/skills/` available (i.e. from within `/Users/giorgiamarenda/Projects/iOSOrchestator`, or with this repo's `.claude/` directory accessible to the session).
+
+- [ ] **Step 1: Prepare a scratch directory and GitHub repo**
+
+Choose (or create) a scratch directory outside this repo, e.g. `/Users/giorgiamarenda/Projects/scratch/ios-orchestrator-counter-app`. Per the spec, to avoid creating throwaway public repos on every dry run, use a **pre-existing private scratch repo** (create it once, reuse across dry runs):
+
+```bash
+mkdir -p /Users/giorgiamarenda/Projects/scratch/ios-orchestrator-counter-app
+cd /Users/giorgiamarenda/Projects/scratch/ios-orchestrator-counter-app
+git init
+gh repo create <your-github-username>/ios-orchestrator-scratch --private --source=. --remote=origin
+```
+
+(If the scratch repo already exists from a previous dry run, just `cd` into a clean local clone of it instead of `git init` + `gh repo create`.)
+
+- [ ] **Step 2: Run `/build-ios-app` for a single-screen counter app**
+
+```
+/build-ios-app /Users/giorgiamarenda/Projects/scratch/ios-orchestrator-counter-app "A simple single-screen iOS counter app: a number, plus and minus buttons to increment/decrement it, and a reset button."
+```
+
+- [ ] **Step 3: Walk through the orchestrator interview (step 0)**
+
+Confirm: the orchestrator invokes `superpowers:brainstorming`, asks clarifying questions one at a time, proposes approaches, and presents a design for approval - without writing to `docs/superpowers/specs/` or invoking `writing-plans` (per `orchestration-flow.md`'s adapted terminal steps).
+
+- [ ] **Step 4: Walk through architect -> ui_designer -> developer -> test_engineer**
+
+At each checkpoint, confirm:
+- `docs/architecture.md` is written (architect) with a "Screens" section listing at least one screen, and `screens_affected: true` is reported.
+- The design-mode question is asked after the architect checkpoint (per `design-mode.md`); choose "Text-only" for this dry run.
+- `docs/design.md` is written (ui_designer) describing the counter screen's view hierarchy.
+- The developer scaffolds an SPM/Xcode project implementing the counter screen, and `swift build`/`xcodebuild build` succeeds.
+- The test engineer adds at least one unit test (e.g. for increment/decrement/reset logic) and `xcodebuild test`/`swift test` passes.
+- `state.json` is updated correctly after each phase (`phase`, `phase_status`, `phases_completed`, `last_commit_sha` where applicable) - inspect `.ios-orchestrator/state.json` directly to confirm.
+- The Risks/Blockers subsection appears at each checkpoint (even if "none").
+
+- [ ] **Step 5: Walk through pr_creation -> code_review -> merge**
+
+Confirm:
+- A feature branch (`feature/initial-implementation`) is created, committed, pushed, and a PR is opened against the scratch repo; `pr_url` is set in `state.json`.
+- The code reviewer posts at least one review (approval or change request) via `gh pr review`/`gh pr comment` - inspect the PR on GitHub (`gh pr view <pr_url> --comments`) to confirm comments/reviews actually appear.
+- If changes are requested, confirm the developer (and test engineer, if applicable) are re-dispatched with the reviewer's comments, push a fix, and the reviewer re-reviews (`review_round` increments in `state.json`).
+- Once approved, confirm `gh pr merge --squash` runs and the PR is merged on GitHub.
+
+- [ ] **Step 6: Walk through release_manager**
+
+Confirm `docs/release-checklist.md` is written with Versioning/Info.plist/App Icon/App Store Readiness sections reflecting the actual scratch project.
+
+- [ ] **Step 7: Confirm final state and clean up**
+
+- Confirm the orchestrator reports the run complete with a final summary.
+- Confirm `.ios-orchestrator/state.json`'s `open_risks` is either empty or contains only items the user is aware of.
+- Optionally, reset the scratch repo for the next dry run: delete the merged branch and reset the default branch to a clean state, or delete and recreate the scratch project directory (the GitHub repo itself can be reused).
+
+---
+
+**End of Chunk 4. End of plan.** All 6 agent definitions, the `build-ios-app` skill, and its reference docs are complete and committed. Task 15 is the final validation pass before considering the toolkit ready for real use.
