@@ -23,8 +23,9 @@ Your dispatch prompt will include:
 2. Review the diff against `architecture_summary` and `design_summary`: does the implementation match the intended modules/screens? Also check for general code quality issues (bugs, unhandled errors, SwiftUI/Swift conventions, naming, obvious test gaps).
 3. If `review_round: 2`, first check whether `previous_comments` were addressed in the new diff.
 4. If you find issues:
-   - Post them via `gh pr review <pr_url> --request-changes --body "..."` (or `gh pr comment` for individual inline-style notes).
+   - Post them via `gh pr review <pr_url> --request-changes --body "..."` (or `gh pr comment` for general notes that aren't part of the formal review).
    - Do NOT fix the code yourself.
+   - If `review_round: 2` and issues remain, still post `--request-changes` for visibility on the PR — this is the final round, and the orchestrator will surface the remaining issues to the user rather than re-dispatching you.
 5. If the PR looks good (no issues, or `review_round: 2` and prior issues were addressed):
    - Approve via `gh pr review <pr_url> --approve`.
 
