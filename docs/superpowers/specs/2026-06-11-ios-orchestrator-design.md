@@ -58,6 +58,38 @@ An `open_risks` entry is removed in two ways: (a) the user resolves or dismisses
 
 The orchestrator (the skill, run in the user's main session) inherits the session's model.
 
+## Role Boundaries & Scope Discipline
+
+Tool access already constrains agents somewhat (e.g., the Architect and UI Designer have no `Edit`/`Bash`, so they can't write source code or run builds). On top of that, each agent's prompt includes an explicit "stay in your lane" instruction, and the orchestrator performs a post-hoc scope check after every phase.
+
+| Agent | In scope | Explicitly out of scope |
+|---|---|---|
+| **ios-architect** | Requirements, architecture decisions, module breakdown; `docs/architecture.md` or scope summary | Does not design specific screens/layouts (defer to UI Designer) or write any Swift/test code |
+| **ios-ui-designer** | Screen list, navigation, view hierarchy, component breakdown; `docs/design.md` (+ mockups per Design Mode) | Does not change architecture decisions in `docs/architecture.md`, and does not write Swift implementation code |
+| **ios-developer** | Implementation code, project scaffolding, builds, branches/commits/PRs | Does not redefine architecture or screen designs; if implementation reveals that `docs/architecture.md`/`docs/design.md` need to change, raises this as an `open_risks` entry for the user rather than silently rewriting those docs |
+| **ios-test-engineer** | Test code (unit/UI test targets), running tests | Does not modify app/source code — if a test failure points to an app bug, raises it as an `open_risks` entry (or, during the PR review loop, the Code Reviewer/Developer handle the fix) rather than fixing app code itself |
+| **ios-code-reviewer** | PR review comments and approval | Does not push code changes itself — all fixes go back through the Developer/Test Engineer |
+| **ios-release-manager** | Versioning, Info.plist, asset catalog checklist, `docs/release-checklist.md` | Does not modify app logic, views, or tests |
+
+**Scope check**: after each phase, before presenting the checkpoint, the orchestrator checks which files changed and compares them against that phase's expected path patterns. `state.json` itself is exempt from this check in every phase (the orchestrator updates it after every phase as part of normal bookkeeping). For `bring_your_own` design sources, the files the UI Designer *reads* (per `design_sources`) are inputs, not outputs, and are never flagged regardless of where they live.
+
+Whether the orchestrator uses `git status --porcelain` (uncommitted changes) or a diff against `last_commit_sha` (committed changes) depends on whether the phase commits its own work:
+
+- **architect, ui_designer, test_engineer, release_manager**: these phases don't commit — use `git status --porcelain`.
+- **developer, pr_creation**: the Developer commits and pushes as part of these phases, so `git status --porcelain` may be clean — use `git diff --name-only <last_commit_sha> HEAD` instead, then update `last_commit_sha` to the new HEAD.
+- **code_review, merge**: no local file changes expected from either; a scope check isn't meaningful here and is skipped. (`merge`'s `gh pr merge` does change the remote default branch, but that's the intended outcome of this phase, not a violation to check for.)
+
+| Phase | Expected paths |
+|---|---|
+| architect | `docs/architecture.md` |
+| ui_designer | `docs/design.md` (Figma/Claude Design mockups are external, not local files) |
+| developer | Source/project files (`*.swift`, `Package.swift`, `*.xcodeproj`/`*.xcworkspace`, asset catalogs) — not `docs/architecture.md` or `docs/design.md` |
+| test_engineer | Test target files (`*Tests.swift` or equivalent) |
+| pr_creation | Same as `developer` (branch/commit/push only — no new file changes beyond what the Developer phase already produced) |
+| release_manager | `docs/release-checklist.md`, `Info.plist`, versioning/project settings, app icon assets |
+
+Any changed file outside the expected patterns for that phase is **not reverted automatically** — it's added to `open_risks` (e.g., "Developer modified `docs/architecture.md` — review whether this was intentional") and surfaced at the checkpoint for the user to accept or ask the agent to undo.
+
 ## Orchestrator Interview
 
 Before dispatching the Architect, the orchestrator (running in the user's main session) invokes the `superpowers:brainstorming` skill itself to interview the user about what's being built/changed:
