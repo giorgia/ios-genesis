@@ -384,7 +384,7 @@ Create `agents/ios-developer.md`:
 ---
 name: ios-developer
 description: Implements iOS app code per the architecture and design docs, scaffolds or modifies the Xcode/SPM project, builds until it compiles, and handles git/GitHub operations (branches, commits, PRs, addressing review comments).
-tools: Read, Write, Edit, Bash
+tools: Read, Write, Edit, Bash, Skill
 model: sonnet
 ---
 
@@ -409,7 +409,17 @@ Implement the app/feature per `architecture_summary` and `design_summary`:
 - **`feature_addition`**: modify the existing project at `target_project_path` to add/change the functionality described in `architecture_summary`/`design_summary`, following the existing project's structure and conventions.
 - Implement views, models, and services per `design_summary`'s screen/view-hierarchy descriptions and `architecture_summary`'s module breakdown.
 - Run `swift build` or `xcodebuild build` (whichever fits the project) until it compiles. If a build fails, fix it and rebuild — up to **3 attempts**. If still failing after 3 attempts, stop and report the failure with the build output rather than continuing to retry.
+- Once the build succeeds, run the **SwiftUI Pro review** (see below).
 - Do NOT commit or push in this dispatch — that happens in `create_pr`.
+
+## SwiftUI Pro review (after a successful build, in `implement` and `address_review`)
+
+1. Invoke the `Skill` tool with `swiftui-pro`. If it reports no such skill exists, skip the rest of this section and note in your report that the SwiftUI Pro review was skipped (not installed).
+2. If it's available, use it (`/swiftui-pro`) to review the SwiftUI views/code you just wrote or changed for common mistakes (deprecated APIs, accessibility/VoiceOver issues, performance problems, navigation/layout/state-management anti-patterns).
+3. Apply fixes for clear correctness, deprecation, and accessibility issues. Use your judgment on purely stylistic suggestions.
+4. If you made changes, rebuild (`swift build`/`xcodebuild build`) to confirm the project still compiles — same retry policy as above (up to 3 attempts; if it still fails, stop and report the failure).
+5. If the `swiftui-pro` invocation itself errors, treat it like a build failure: retry up to 3 attempts total, then proceed without the review and note this in your report.
+6. Note in your report what was applied (or why the pass was skipped).
 
 ## dispatch_type: create_pr
 
@@ -433,7 +443,8 @@ Additional input fields:
 Steps:
 1. Read `reviewer_comments` and address each one in the code.
 2. Run `swift build` / `xcodebuild build` to confirm the project still compiles (same retry policy as `implement`: up to 3 attempts).
-3. Commit the fixes and push to the existing PR branch (same branch as `create_pr` — do not create a new branch). This updates the PR in place.
+3. Once the build succeeds, run the **SwiftUI Pro review** (see above).
+4. Commit the fixes and push to the existing PR branch (same branch as `create_pr` — do not create a new branch). This updates the PR in place.
 
 ## Your final report to the orchestrator
 
@@ -444,6 +455,7 @@ End your response with:
 - dispatch_type: <implement|create_pr|address_review>
 - summary: <1-3 sentence summary of what you did>
 - build_status: <success|failed, with brief detail if failed>
+- swiftui_pro: <n/a for create_pr, otherwise: "skipped (not installed)" | "skipped (error after retries)" | "ran, no changes" | "ran, applied: <brief list>">
 - pr_url: <URL if dispatch_type is create_pr, otherwise "n/a">
 - risks: <bullet list, or "none">
 ```
@@ -467,7 +479,7 @@ assert m, 'no frontmatter found'
 fm = yaml.safe_load(m.group(1))
 assert fm['name'] == 'ios-developer'
 assert fm['model'] == 'sonnet'
-assert set(['Read', 'Write', 'Edit', 'Bash']).issubset(set(fm['tools']))
+assert set(['Read', 'Write', 'Edit', 'Bash', 'Skill']).issubset(set(fm['tools']))
 print('OK:', fm)
 "
 ```
@@ -1333,6 +1345,15 @@ From any Claude Code session (per spec's "Packaging & Installation"):
 
 Expected: `/ios-genesis` and the six `ios-*` subagents are listed as available (e.g. via `/agents` or `/help`), in a session whose working directory is *not* `iOSOrchestator` - confirming the plugin doesn't depend on running from within this repo.
 
+Optionally, also install the `swiftui-pro` companion plugin (per spec's "Optional companion: SwiftUI Pro") to exercise that path during this dry run:
+
+```
+/plugin marketplace add twostraws/SwiftUI-Agent-Skill
+/plugin install swiftui-pro@swiftui-agent-skill
+```
+
+If you skip this, the developer should still proceed normally and report the SwiftUI Pro pass as skipped (not installed) - both paths are valid for this dry run.
+
 - [ ] **Step 2: Prepare a scratch directory and GitHub repo**
 
 Choose (or create) a scratch directory outside this repo, e.g. `/Users/giorgiamarenda/Projects/scratch/ios-orchestrator-counter-app`. Per the spec, to avoid creating throwaway public repos on every dry run, use a **pre-existing private scratch repo** (create it once, reuse across dry runs):
@@ -1363,6 +1384,7 @@ At each checkpoint, confirm:
 - The design-mode question is asked after the architect checkpoint (per `design-mode.md`); choose "Text-only" for this dry run.
 - `docs/design.md` is written (ui_designer) describing the counter screen's view hierarchy.
 - The developer scaffolds an SPM/Xcode project implementing the counter screen, and `swift build`/`xcodebuild build` succeeds.
+- The developer's report includes a `swiftui_pro` field reflecting whether the SwiftUI Pro pass ran (and what it changed, if anything) or was skipped (not installed).
 - The test engineer adds at least one unit test (e.g. for increment/decrement/reset logic) and `xcodebuild test`/`swift test` passes.
 - `state.json` is updated correctly after each phase (`phase`, `phase_status`, `phases_completed`, `last_commit_sha` where applicable) - inspect `.ios-orchestrator/state.json` directly to confirm.
 - The Risks/Blockers subsection appears at each checkpoint (even if "none").
