@@ -11,7 +11,7 @@ Each subagent's own prompt (`agents/*.md`) includes its role boundaries. This do
 | ios-developer | Implementation code, project scaffolding, builds, branches/commits/PRs | Redefining architecture or screen designs (raise as `open_risks` instead); test code |
 | ios-test-engineer | Test code, running tests | App/source code (raise apparent app bugs as `open_risks`) |
 | ios-code-reviewer | PR review comments and approval | Pushing code changes itself - fixes go through Developer/Test Engineer |
-| ios-release-manager | Versioning, Info.plist, asset catalog checklist, `docs/release-checklist.md` | App logic, views, tests |
+| ios-release-manager | Reading versioning/Info.plist/asset catalog info to write `docs/release-checklist.md` | App logic, views, tests, and editing `Info.plist`/project settings/asset catalogs directly (those are read-only inputs; gaps become action items in the checklist) |
 
 ## Scope check
 
@@ -26,7 +26,7 @@ For `bring_your_own` design mode, the files the UI Designer *reads* (per `design
 Whether the orchestrator uses `git status --porcelain` (uncommitted changes) or a diff against `last_commit_sha` (committed changes) depends on whether the phase commits its own work:
 
 - **architect, ui_designer, test_engineer, release_manager**: these phases don't commit - run `git status --porcelain` in `target_project_path` and check the listed files.
-- **developer, pr_creation**: the Developer commits and pushes as part of these phases, so `git status --porcelain` may be clean - run `git diff --name-only <last_commit_sha> HEAD` instead, then update `last_commit_sha` to the new HEAD (per `state-schema.md` / `checkpoints.md` step 1).
+- **developer, pr_creation**: the Developer commits and pushes as part of these phases, so `git status --porcelain` may be clean - run `git diff --name-only <last_commit_sha> HEAD` using the **pre-checkpoint** value of `last_commit_sha` (i.e. capture it before `checkpoints.md` step 1 overwrites it), then let step 1 update `last_commit_sha` to the new HEAD as usual.
 - **code_review, merge**: no local file changes expected from either - skip the scope check entirely. (`merge`'s `gh pr merge` changes the remote default branch, but that's the intended outcome, not a violation.)
 
 ### Expected paths per phase
@@ -38,7 +38,7 @@ Whether the orchestrator uses `git status --porcelain` (uncommitted changes) or 
 | developer | Source/project files (`*.swift`, `Package.swift`, `*.xcodeproj`/`*.xcworkspace`, asset catalogs) - not `docs/architecture.md` or `docs/design.md` |
 | test_engineer | Test target files (`*Tests.swift` or equivalent) |
 | pr_creation | Same as `developer` (branch/commit/push only - no new file changes beyond what the `developer` phase already produced) |
-| release_manager | `docs/release-checklist.md`, `Info.plist`, versioning/project settings, app icon assets |
+| release_manager | `docs/release-checklist.md` only (reads `Info.plist`, project settings, and asset catalogs as inputs without modifying them, same as the `bring_your_own` `design_sources` carve-out above) |
 
 ### Violations
 
