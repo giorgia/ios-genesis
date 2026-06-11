@@ -8,7 +8,7 @@ After every phase (subagent dispatch) completes, the orchestrator runs this proc
 - Append an entry to `phases_completed` (with `phase`, `completed_at`, `summary` from the subagent's report, and `artifact`).
 - For `developer`/`pr_creation` phases, update `last_commit_sha` to the new `git rev-parse HEAD`.
 - For `pr_creation`, set `pr_url`.
-- For `code_review`, increment `review_round` by 1 (it is monotonic and capped at 2 — see `state-schema.md` and `pr-review-flow.md` for the full lifecycle).
+- For `code_review`, persist `review_round` as already set by the `code_review` loop (see `pr-review-flow.md`) - this checkpoint runs once after the loop concludes, so do not increment it again here. It is monotonic and capped at 2 (see `state-schema.md`).
 - If the subagent's report includes `screens_affected` (architect only), set it.
 - For each risk/blocker in the subagent's report, append a new entry to `open_risks` with the next `risk-N` id, `phase` set to the current phase, `raised_at` set to the current time, and the reported `description`.
 - If the subagent's report references an existing `open_risks` entry's `id` as resolved, remove that entry from `open_risks`.

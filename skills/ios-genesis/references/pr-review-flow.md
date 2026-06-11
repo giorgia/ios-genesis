@@ -25,7 +25,7 @@ After the dispatch, run the `developer`/`pr_creation` scope check (see `role-bou
    b. If the developer's changes affect behavior (use judgment based on the developer's report summary), dispatch `ios-test-engineer` with `dispatch_type: retest`, passing `reviewer_comments` and the developer's `summary`.
    c. If `review_round == 1`: increment to 2, pass `previous_comments` (the round-1 reviewer's comments) to the reviewer, and go back to step 2.
    d. If `review_round == 2` and issues remain: stop looping. Surface the unresolved comments to the user at the checkpoint (do not proceed to `merge` automatically) and let the user decide via the standard checkpoint options.
-5. Run the standard checkpoint (`checkpoints.md`) after the loop concludes (whether approved or stopped at round 2).
+5. Run the standard checkpoint (`checkpoints.md`) after the loop concludes (whether approved or stopped at round 2). In both cases `phase_status` is set to `"complete"` for `code_review` (per `checkpoints.md` step 1) - even when stopped at round 2 with unresolved issues, since the run can be resumed and `code_review` re-entered manually later if the user addresses the remaining comments outside the orchestrator.
 
 ## merge
 
