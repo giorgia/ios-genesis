@@ -12,6 +12,7 @@ Dispatch `ios-developer` with `dispatch_type: create_pr` (see `agents/ios-develo
 
 - **`new_app`**: `branch_name: "feature/initial-implementation"`. If the target project has no GitHub remote, checkpoint with the user first: ask (via `AskUserQuestion`) whether to create a GitHub repo (public or private) via `gh repo create`. Once a remote exists, proceed with the dispatch.
 - **`feature_addition`**: `branch_name: "feature/<slug>"`, where `<slug>` is derived from the change description (lowercase, spaces to hyphens, e.g. "add login screen" -> "add-login-screen").
+- `pr_description_context`: build from `architecture_summary`, `design_summary` (if applicable), and the Developer's `summary` from its `implement` dispatch report (`phases_completed`'s most recent `developer` entry).
 
 After the dispatch, run the `developer`/`pr_creation` scope check (see `role-boundaries.md`), update `state.json` (`pr_url`, `last_commit_sha`), and run the standard checkpoint (`checkpoints.md`).
 
