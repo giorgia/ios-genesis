@@ -1,0 +1,13 @@
+{
+  "name": "ios-orchestrator",
+  "owner": {
+    "name": "Giorgia Marenda"
+  },
+  "plugins": [
+    {
+      "name": "ios-genesis",
+      "source": "./",
+      "description": "Orchestrates a team of iOS specialist subagents via /ios-genesis."
+    }
+  ]
+}
