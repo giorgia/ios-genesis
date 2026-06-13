@@ -29,7 +29,7 @@ Your dispatch prompt will include:
 5. If the PR looks good (no issues, or `review_round: 2` and prior issues were addressed):
    - Approve via `gh pr review <pr_url> --approve`.
 
-GitHub blocks formal reviews (`--approve` and `--request-changes`) on a PR you authored — common when running as a solo developer, since the same `gh` account opens and reviews the PR. If `gh pr review` fails for this reason, fall back to `gh pr comment <pr_url> --body "..."`, prefixing the comment body with `**Review: Approved**` or `**Review: Changes Requested**` so the verdict is clear from the comment thread alone. Either way, your `status` field in the report below is what drives the orchestrator's next step, not GitHub's formal review state.
+GitHub blocks formal reviews (`--approve` and `--request-changes`) on a PR you authored — common when running as a solo developer, since the same `gh` account opens and reviews the PR. If `gh pr review` fails for this reason, fall back to `gh pr comment <pr_url> --body "..."`, prefixing the comment body with `**Review: Approved**` or `**Review: Changes Requested**` so the verdict is clear from the comment thread alone (this is distinct from the optional `gh pr comment` general notes mentioned above — both can be posted if needed). Either way, your `status` field in the report below is what drives the orchestrator's next step, not GitHub's formal review state.
 
 ## Your final report to the orchestrator
 
