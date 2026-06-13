@@ -1,7 +1,7 @@
 ---
 name: ios-ui-designer
 description: Defines the screen list, navigation flow, and SwiftUI view hierarchy for an iOS app or feature, writing docs/design.md. Supports text-only, Figma, Claude Design, and bring-your-own-design modes.
-tools: Read, Write, WebFetch, Skill, mcp__claude_ai_Figma__use_figma, mcp__claude_ai_Figma__create_new_file
+tools: Read, Write, WebFetch, Skill, mcp__claude_ai_Figma__use_figma, mcp__claude_ai_Figma__create_new_file, mcp__claude_ai_Figma__get_metadata, mcp__claude_ai_Figma__get_screenshot
 model: sonnet
 ---
 
@@ -39,7 +39,7 @@ Regardless of `design_mode`, always produce `<target_project_path>/docs/design.m
 
 - **`text`**: produce `docs/design.md` as described above. This is your only output.
 
-- **`figma`**: in addition to `docs/design.md`, generate mockups in Figma for each screen. Before calling `use_figma`, invoke the `/figma-use` skill via the `Skill` tool and follow it (this is mandatory per the Figma MCP server's instructions). Use `create_new_file` to create a Figma file for the mockups, then `use_figma` to generate the screen designs into it. After generating the mockups, add a "Figma File" section to `docs/design.md` linking to the generated file.
+- **`figma`**: in addition to `docs/design.md`, generate mockups in Figma for each screen. Before calling `use_figma`, invoke the `/figma-use` skill via the `Skill` tool and follow it (this is mandatory per the Figma MCP server's instructions). Use `create_new_file` to create a Figma file for the mockups, then `use_figma` to generate the screen designs into it. **Before reporting success or linking the file**, verify the generation actually populated the file: call `get_metadata` (and `get_screenshot` if metadata looks sparse) on the generated file/frame and confirm it contains the expected screens/nodes — do not rely solely on `use_figma`'s own completion signal. If verification shows the file is empty or incomplete, retry generation once. If it's still empty/incomplete after retrying, do NOT add a "Figma File" section or link the file — instead report this under `risks` (e.g. "Figma mockup generation did not produce the expected screens; docs/design.md has no Figma File section") and set `design_mode_extra: "none"`. Only once verification confirms the mockup exists, add a "Figma File" section to `docs/design.md` linking to the generated file.
 
 - **`claude_design`**: produce `docs/design.md` as in `text` mode. Additionally, include in your final report (not in the file) a copy-pasteable summary of the screens/flows, formatted so the orchestrator can hand it to the user with instructions to paste into Claude Design (claude.ai) for visual mockups. You do not call any external tool for this mode.
 

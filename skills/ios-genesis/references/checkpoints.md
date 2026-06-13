@@ -21,7 +21,7 @@ See `role-boundaries.md` for the per-phase expected-path patterns and git-check 
 ## 3. Present the summary to the user
 
 Present:
-- A brief description of what the phase produced or changed (e.g. "Architect wrote `docs/architecture.md` - 3 modules: Networking, Persistence, UI." or "Developer implemented the login screen, build succeeded.").
+- A summary of what the phase produced or changed - not just a one-line status. For phases that write a doc (`docs/architecture.md`, `docs/design.md`, `docs/release-checklist.md`), surface the doc's actual key content (e.g. module/screen names and responsibilities, key architectural decisions, checklist items and their status) so the user can evaluate it without opening the file themselves. For phases that don't write a doc (`developer`, `test_engineer`, `pr_creation`, `code_review`, `merge`), describe concretely what changed (files touched, build/test results, PR link, review verdict).
 - A **Risks/Blockers** subsection listing every entry currently in `open_risks` (the cumulative list, not just ones raised this phase), each shown as `[id] description (raised during <phase>)`. If `open_risks` is empty, this subsection reads "Risks/Blockers: none".
 
 ## 4. Ask the user via AskUserQuestion
