@@ -1,0 +1,5 @@
+{
+  "name": "ios-genesis",
+  "description": "A team of specialist subagents (architect, UI designer, developer, test engineer, code reviewer, release manager) orchestrated by /ios-genesis to build new iOS apps or add features to existing ones, with per-phase checkpoints and a GitHub PR review loop.",
+  "version": "0.1.0"
+}
