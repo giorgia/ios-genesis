@@ -1,0 +1,101 @@
+# ios-genesis
+
+A Claude Code plugin that builds iOS apps with a team of six specialist AI subagents — architect, UI designer, developer, test engineer, code reviewer, and release manager — orchestrated through an 8-phase pipeline with human checkpoints, a real GitHub PR review loop, and a resumable state machine.
+
+```
+/ios-genesis ~/Projects/my-app "a habit tracker with streaks and reminders"
+```
+
+One command takes you from an idea interview to a merged PR with architecture docs, design mockups, implementation, passing tests, and a release checklist.
+
+## Why a team of agents?
+
+A single agent asked to "build an app" mixes concerns: it designs while implementing, reviews its own work with the same context that produced the bugs, and forgets requirements as its context fills up. ios-genesis splits the work the way an engineering team does:
+
+| Agent | Owns | Explicitly may not |
+|---|---|---|
+| `ios-architect` | Requirements, module breakdown, `docs/architecture.md` | Screen layouts, code |
+| `ios-ui-designer` | Screens, navigation, view hierarchy, `docs/design.md` + mockups | Architecture decisions, Swift code |
+| `ios-developer` | Implementation, scaffolding, builds, branches/commits/PRs | Redefining architecture/design, test code |
+| `ios-test-engineer` | Test code, running the suite | Touching app code (bugs get escalated, not patched) |
+| `ios-code-reviewer` | PR review comments and verdicts | Pushing fixes itself |
+| `ios-release-manager` | `docs/release-checklist.md` from project state | Editing the project it audits |
+
+Every agent is dispatched fresh with zero memory. The orchestrator passes each one everything it needs — prior artifacts, summaries, user feedback — and receives a structured report back. No shared context means no context pollution, and every handoff is an explicit, inspectable contract.
+
+Boundaries are *enforced*, not just prompted: after every phase the orchestrator diffs the working tree against that phase's expected file patterns. An out-of-scope change isn't silently reverted — it's logged as a risk and surfaced to you at the checkpoint.
+
+## The pipeline
+
+```mermaid
+flowchart LR
+    I[Interview] --> A[Architect] --> D[UI Designer] --> Dev[Developer] --> T[Test Engineer]
+    T --> PR[PR Creation] --> R[Code Review] --> M[Merge] --> RM[Release Manager]
+    R -- "changes requested" --> Fix[Developer: address review] --> Retest[Test Engineer: retest] --> R
+```
+
+After **every** phase, a checkpoint: the orchestrator updates the state file, runs the scope check, summarizes what was actually produced (module lists, screen hierarchies, test results — not just "phase done"), lists every open risk, and asks you to **continue**, **make changes first** (re-dispatches the same agent with your feedback), or **stop**.
+
+## Loop engineering
+
+The pipeline is built from nested feedback loops, each with an explicit exit condition and a bounded retry budget:
+
+- **Build loop** — the developer builds with `swift build`/`xcodebuild`, fixes, and rebuilds; capped at 3 attempts, then it stops and reports the failure instead of thrashing.
+- **Test loop** — the test engineer runs the suite and repairs *test* code up to 3 attempts. If the failure looks like an app bug, it escalates rather than patching code it doesn't own.
+- **Review loop** — a real `gh` PR review, capped at 2 rounds: reviewer requests changes → developer addresses them → test engineer retests if behavior changed → reviewer verifies its own previous comments. Unresolved round-2 issues go to the human, never auto-merged.
+- **Verification loops** — the orchestrator independently re-runs tests before presenting results, and the UI designer must verify a generated Figma file actually contains the mockups (via metadata/screenshot inspection) before linking it — because "the tool said it worked" is not evidence.
+- **Human checkpoint loop** — "make changes first" re-dispatches any phase with your feedback appended, then re-runs the full checkpoint from the top.
+
+## State machine & resumability
+
+Every run maintains `.ios-orchestrator/state.json` in the target project: current phase, an append-only history of completed phases, and a **risk registry**. Risks raised by any agent accumulate across the run and appear at every checkpoint; an entry can only be removed by you dismissing it or a later agent explicitly resolving it by id — never silently dropped.
+
+Stop at any checkpoint and re-run `/ios-genesis <path>` later: the orchestrator reloads the state, checks whether the repo's HEAD drifted from what it last recorded (and shows you the intervening commits if so), and continues from the exact phase it left off.
+
+## Field-tested
+
+The pipeline was validated end-to-end against a real GitHub repository: a counter app went from interview to squash-merged PR to release checklist across all eight phases. The dry run wasn't a demo — it was designed to find failures, and it found four real ones that are now fixed:
+
+1. **Plugin manifest bug** — `plugin.json` declared `agents`/`skills` paths that Claude Code's schema rejects (they're auto-discovered); the plugin wouldn't install.
+2. **Silent Figma failure** — the UI designer created an empty Figma file and reported success, because generation was never verified. Now: mandatory metadata/screenshot verification with a retry-then-report-as-risk fallback.
+3. **GitHub self-approval restriction** — `gh pr review --approve` fails when the PR author and reviewer are the same account (the normal case for a solo developer). Now: automatic fallback to a clearly-prefixed review comment, with the pipeline driven by the agent's structured verdict rather than GitHub's formal review state.
+4. **Opaque checkpoints** — summaries said *that* a doc was written, not *what's in it*. Now checkpoints must surface actual artifact content.
+
+The run also demonstrated the risk registry working as designed: agents self-reported limitations (SPM-only scaffold, a Dynamic Type gap) that were carried through every checkpoint and landed as action items in the release checklist.
+
+## Installation
+
+Requires [Claude Code](https://claude.com/claude-code), an authenticated [`gh` CLI](https://cli.github.com), Xcode command line tools, and the [superpowers](https://github.com/obra/superpowers) plugin (the orchestrator uses its brainstorming skill for the requirements interview).
+
+```
+/plugin marketplace add giorgia/ios-genesis
+/plugin install ios-genesis@ios-orchestrator
+```
+
+Restart the session (or `/reload-plugins`), then verify `/agents` lists the six `ios-genesis:*` subagents.
+
+### Usage
+
+```
+/ios-genesis <target-project-path> <description>
+```
+
+- **New app**: point at an empty/nonexistent directory.
+- **Feature addition**: point at an existing Xcode/SPM project — the architect surveys the codebase first, and the release-manager phase becomes opt-in.
+- **Resume**: point at a project with a previous run's state file.
+
+Four design modes, chosen at the first UI phase: **text-only** (design doc), **Figma** (generated + verified mockups via the Figma MCP server), **Claude Design** (a paste-ready brief for claude.ai), or **bring-your-own** (transcribes your files/URLs/screenshots into the design doc with per-screen provenance).
+
+## Known limitations & roadmap
+
+Listed here because honest edges matter more than polish:
+
+- **No visual verification loop yet.** Every loop currently terminates at "compiles and unit tests pass" — nothing renders the app. The next milestone is simulator-in-the-loop verification: install, launch, screenshot via `simctl`, and multimodal comparison against the Figma mockup. (The dry run shipped a button whose circle collapsed around a short SF Symbol glyph — invisible to the compiler, the unit tests, and a diff-reading reviewer. This is the loop that catches it.)
+- **SPM-first scaffolding.** New apps default to a Swift package; an installable `.xcodeproj` app target (via xcodegen) currently requires a follow-up run. The default should invert: xcodegen app shell + SPM feature package.
+- **XCTest, not Swift Testing.** The test engineer should default to Swift Testing (`@Test`/`#expect`) with XCUITest for UI flows once app targets are the default.
+- **No scripted evals.** Validation was a manual (if adversarial) dry run; a headless eval harness that runs a fixed spec through the pipeline and asserts on artifacts, builds, and tests is planned.
+- **Uniform model routing.** Every agent runs on the same model; per-role routing (stronger for architecture/review, faster for mechanical fixes) is planned.
+
+## License
+
+MIT
