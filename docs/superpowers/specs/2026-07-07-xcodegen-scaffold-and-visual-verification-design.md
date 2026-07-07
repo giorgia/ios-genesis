@@ -34,7 +34,7 @@ Before dispatching `ios-developer` with `dispatch_type: implement` for `mode: ne
 
 > "The `new_app` scaffold requires xcodegen. Install it with `brew install xcodegen`, then re-run `/ios-genesis <path>` to resume from this point."
 
-and stops. `state.json` is unchanged (`phase: developer`, `phase_status: in_progress` not yet written — the check runs before the dispatch and before any state update for the phase), so resuming re-enters at the developer phase. This mirrors the existing `gh auth status` prerequisite check in `pr-review-flow.md`.
+and stops. `state.json` still shows the prior phase as complete, so resuming re-enters at the developer phase. This mirrors the existing `gh auth status` prerequisite check in `pr-review-flow.md`.
 
 `feature_addition` does not require xcodegen (existing projects keep their own build setup) — the check runs only for `new_app` `implement`.
 
@@ -53,9 +53,10 @@ Replace the current SPM-first guidance ("scaffold … using Swift Package Manage
     - `PRODUCT_BUNDLE_IDENTIFIER: com.example.<AppName>`, `MARKETING_VERSION: 1.0.0`, `CURRENT_PROJECT_VERSION: 1`, `CODE_SIGN_STYLE: Automatic`, empty `DEVELOPMENT_TEAM`
     - a scheme with build/run/test/profile/analyze/archive configs
   - `<AppName>/` source directory: `@main` app entry, views/models per `design_summary`/`architecture_summary`
+  - a `.gitignore` ignoring `.ios-orchestrator/`, `*.xcuserdata*`, `.DS_Store`, and build products — so `pr_creation`'s `git init` + initial commit never captures orchestrator state or screenshots
   - Run `xcodegen generate` after writing/updating `project.yml`. Both `project.yml` and the generated `.xcodeproj` are kept (committed later at `pr_creation`) so the repo is usable without xcodegen installed.
 - Build with `xcodebuild build -scheme <AppName> -destination 'platform=iOS Simulator,name=<an available iPhone>'` (query `xcrun simctl list devices available` to pick one). Same retry policy as today: 3 attempts, then stop and report.
-- The `com.example.*` bundle id is noted in the developer's report `risks` so it flows into the release checklist.
+- The `com.example.*` bundle id is noted in the developer's report `risks` (becoming an `open_risks` entry per the standard checkpoint rules).
 
 **Do NOT define test targets in `project.yml`** — a target whose source directory doesn't exist yet breaks `xcodegen generate`, and writing placeholder tests would violate the developer's role boundary (test code belongs to the Test Engineer).
 
@@ -75,8 +76,16 @@ Pure-SPM projects (some `feature_addition` targets) keep the existing `swift tes
 
 ### 1.4 Role-boundaries updates (`references/role-boundaries.md`)
 
-- `developer` expected paths: add `project.yml`, `*.xcodeproj`, `Info.plist`, `PrivacyInfo.xcprivacy`, asset catalogs.
-- `test_engineer` expected paths: extend the test-target-registration carve-out to `project.yml` edits and the regenerated `.xcodeproj` (new app only).
+- `developer` expected paths: add `project.yml`, `*.xcodeproj`, `Info.plist`, `PrivacyInfo.xcprivacy`, asset catalogs, `.gitignore`.
+- `test_engineer` expected paths: extend the test-target-registration carve-out to `project.yml` edits and the regenerated `.xcodeproj`. The carve-out applies **whenever the test engineer registers a newly created test target** (both modes — a `feature_addition` on an xcodegen project without UI tests legitimately adds a target too), replacing the current "(new app only)" restriction.
+
+### 1.5 Release manager update (`agents/ios-release-manager.md`)
+
+Add to the bundle-id/versioning checklist guidance: a `PRODUCT_BUNDLE_IDENTIFIER` under `com.example.*` is the scaffold's placeholder and must be flagged as an action item (a reverse-DNS format check alone would wrongly pass it).
+
+### 1.6 Orchestrator state initialization (`references/state-schema.md`)
+
+At initialization for `feature_addition` (existing git repo): if `.ios-orchestrator/` is not already git-ignored in the target repo, append it to the repo's `.gitignore` (creating the file if needed). This keeps orchestrator state and screenshots out of user repos regardless of mode; for `new_app` the scaffold's `.gitignore` (1.2) covers it.
 
 ---
 
@@ -91,7 +100,7 @@ Pure-SPM projects (some `feature_addition` targets) keep the existing `swift tes
 - `mode`, `target_project_path`, `design_mode`
 - `design_summary`: contents of `docs/design.md`
 - `design_reference`: the mode-specific visual reference — the Figma file link (from `docs/design.md`'s "Figma File" section) for `figma`; the `design_sources` list for `bring_your_own`; `"none"` for `text`/`claude_design` (compare against `design_summary` itself)
-- `app_scheme`: the scheme name for `new_app` (the orchestrator knows it — the app name); `"discover"` for `feature_addition`
+- `app_scheme`: for `new_app`, the scheme name — the `<AppName>` from the developer's `implement` report (or, on resume, the `name:` field of `project.yml`); `"discover"` for `feature_addition`
 - `verification_round`: 1 or 2
 - For round 2: `previous_findings` (its own round-1 findings, verbatim)
 
@@ -121,6 +130,8 @@ Pure-SPM projects (some `feature_addition` targets) keep the existing `swift tes
 - risks: <bullet list, or "none">
 ```
 
+The orchestrator includes `unverified` in the checkpoint summary. For multi-screen designs the verifier additionally lists significant unverified screens under `risks`, so they become `open_risks` entries per the standard checkpoint rules.
+
 **Role boundaries**: builds and simulator operations only; no source/project file edits; no commits; no design judgment beyond the comparison (a finding cites the design reference it violates — taste-only objections go under `risks`, not `findings`).
 
 ### 2.2 New phase: `visual_verification` (orchestration)
@@ -133,7 +144,7 @@ Loop (mirrors the `code_review` loop, capped at 2 rounds):
 2. `status: pass` → run the standard checkpoint, proceed to `test_engineer`.
 3. `status: skipped` → append an `open_risks` entry with the skip reason, run the standard checkpoint, proceed. (Do not loop.)
 4. `status: issues_found`:
-   a. Dispatch `ios-developer` with new `dispatch_type: address_visual` (see 2.3).
+   a. Dispatch `ios-developer` with new `dispatch_type: address_visual` (see 2.3). If the developer reports a build failure (after its 3 attempts), stop looping and surface the failure at the checkpoint — same as any failed phase, the user decides.
    b. If `verification_round == 1`: increment to 2, re-dispatch the verifier with `previous_findings`, go to step 2.
    c. If `verification_round == 2` and findings remain: stop looping. Append the unresolved findings as `open_risks` entries and surface them at the checkpoint — the user decides (Continue / Make changes first / Stop).
 5. The checkpoint runs once, after the loop concludes (like `code_review`). `phase_status: "complete"` either way; `verification_round` is persisted as set by the loop.
@@ -151,7 +162,10 @@ Steps: read the screenshots and findings, fix each finding in the code, rebuild 
 
 - `state-schema.md`: `phase` enum gains `visual_verification`; new field `verification_round` (0 before the first verifier dispatch, then 1–2; monotonic within the phase, analogous to `review_round`); `phases_completed` artifact for the phase is `.ios-orchestrator/screenshots/` (or `"none"` if skipped).
 - `checkpoints.md`: persist `verification_round` as set by the loop (same rule as `review_round`); the checkpoint summary must include the verification verdict and reference the screenshot(s).
-- `role-boundaries.md`: new `ios-visual-verifier` row (in scope: simulator build/install/launch/screenshot, comparison; out of scope: any file edits, commits). Scope check: `git status --porcelain` expected clean (screenshots live under the exempt `.ios-orchestrator/`); for the `address_visual` sub-dispatch, expected paths = same as `developer`.
+- `role-boundaries.md`:
+  - Widen the existing scope-check exemption from `state.json` to the whole `.ios-orchestrator/` directory (screenshots now live there too).
+  - New `ios-visual-verifier` row (in scope: simulator build/install/launch/screenshot, comparison; out of scope: any file edits, commits).
+  - Scope check for the phase must be **delta-based**, not "expected clean": the developer's `implement` changes are still uncommitted at this point (commits happen at `pr_creation`), so `git status --porcelain` legitimately shows them. The orchestrator captures `git status --porcelain` before the first verifier dispatch and compares after the loop: zero new/changed paths if no fix round ran; new/changed paths matching the `developer` expected patterns if `address_visual` ran; anything else is a violation (standard open_risks treatment).
 - `orchestration-flow.md`: insert the phase in both mode sequences (renumber), with the `screens_affected` condition and a pointer to the loop procedure. Add the xcodegen prerequisite check to the new-app developer step.
 - `SKILL.md`: add the verifier to the team description; no new reference doc (the loop lives in `orchestration-flow.md` — it's short enough).
 - `.claude-plugin/plugin.json` + `marketplace.json` description updates; version → `0.2.0`.
@@ -167,7 +181,7 @@ Steps: read the screenshots and findings, fix each finding in the code, rebuild 
 | `feature_addition` app won't install | Verifier reports `skipped` + reason; open_risk; run continues |
 | `new_app` scaffold won't install/launch or crashes | `issues_found` → developer fix loop |
 | Findings persist after round 2 | Loop stops; findings become open_risks; user decides at checkpoint |
-| Figma reference unreadable (`get_screenshot` fails) | Fall back to `design_summary` text comparison; note under `risks` |
+| Figma reference unreadable (`get_screenshot` fails, or `docs/design.md` has no Figma File section — the designer's failure path) | Fall back to `design_summary` text comparison; note under `risks` |
 
 ## Validation
 
