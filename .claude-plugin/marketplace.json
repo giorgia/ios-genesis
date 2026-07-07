@@ -7,7 +7,7 @@
     {
       "name": "ios-genesis",
       "source": "./",
-      "description": "Orchestrates a team of iOS specialist subagents via /ios-genesis."
+      "description": "Orchestrates a team of iOS specialist subagents via /ios-genesis, including simulator-in-the-loop visual verification."
     }
   ]
 }
