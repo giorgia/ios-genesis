@@ -11,6 +11,7 @@
   "phase": "code_review",
   "phase_status": "in_progress",
   "review_round": 1,
+  "verification_round": 1,
   "screens_affected": true,
   "design_mode": "text",
   "design_sources": [],
@@ -40,9 +41,10 @@
 - `mode`: `"new_app"` or `"feature_addition"`. Set once, at initialization, based on whether `.ios-orchestrator/state.json` existed at the start of the run.
 - `interview_output`: the requirements/approach/design summary approved at the end of the orchestrator's Step 0 interview (see `orchestration-flow.md`). Set once, at initialization, before the Architect's first dispatch — this lets a resume re-dispatch the Architect with the same input if the run stopped before the Architect's checkpoint completed.
 - `architecture_summary`: only present when `mode: "feature_addition"`. The Architect's full scope-summary text (it writes no file in this mode — see `agents/ios-architect.md`), persisted after the Architect's checkpoint so later phases (`ui_designer`, `developer`, `test_engineer`, `code_reviewer`) can use it without relying on the Architect's memory. For `mode: "new_app"`, this text lives in `docs/architecture.md` instead and this key is omitted.
-- `phase`: one of `architect`, `ui_designer`, `developer`, `test_engineer`, `pr_creation`, `code_review`, `merge`, `release_manager` — the phase currently in progress or last completed.
+- `phase`: one of `architect`, `ui_designer`, `developer`, `visual_verification`, `test_engineer`, `pr_creation`, `code_review`, `merge`, `release_manager` — the phase currently in progress or last completed.
 - `phase_status`: `"in_progress"` or `"complete"`.
 - `review_round`: current round of the PR review loop (see `pr-review-flow.md`). Monotonically increasing across the PR's lifecycle: `0` before the first review dispatch, `1` for the first review, `2` for the second (the loop is capped at 2 rounds — see `pr-review-flow.md`).
+- `verification_round`: current round of the visual verification loop (see `orchestration-flow.md`). Monotonic, analogous to `review_round`: `0` before the first verifier dispatch, `1` for the first verification, `2` for the second (the loop is capped at 2 rounds). The phase's `phases_completed` artifact is `.ios-orchestrator/screenshots/` (or `"none"` if the phase was skipped).
 - `screens_affected`: `true`, `false`, or `null` if not yet determined (set by the Architect's report). Determines whether `ui_designer` runs and whether the design-mode question is asked (see `design-mode.md`).
 - `design_mode`: `"text"`, `"figma"`, `"claude_design"`, or `"bring_your_own"`. Only meaningful when `screens_affected: true`; otherwise unset (key omitted).
 - `design_sources`: list of file paths/URLs to user-provided designs. Only populated when `design_mode` is `"bring_your_own"`; empty otherwise.
@@ -60,7 +62,9 @@ Throughout this schema, "unset" means the key is omitted from the JSON entirely 
 
 ## Initialization
 
-For a brand-new run (`mode: new_app`, or `feature_addition` against a project with no existing state file), the orchestrator creates `.ios-orchestrator/state.json` with: `mode` set appropriately, `interview_output` set from Step 0's interview result, `phase: "architect"`, `phase_status: "in_progress"`, `review_round: 0`, `screens_affected: null` (unknown until the Architect reports), `design_mode` unset, `design_sources: []`, `last_commit_sha` unset for `new_app` (no repo yet — created during `pr_creation`), or set to the current `git rev-parse HEAD` of the target project for `feature_addition`, `pr_url` unset, `open_risks: []`, `phases_completed: []`.
+For a brand-new run (`mode: new_app`, or `feature_addition` against a project with no existing state file), the orchestrator creates `.ios-orchestrator/state.json` with: `mode` set appropriately, `interview_output` set from Step 0's interview result, `phase: "architect"`, `phase_status: "in_progress"`, `review_round: 0`, `verification_round: 0`, `screens_affected: null` (unknown until the Architect reports), `design_mode` unset, `design_sources: []`, `last_commit_sha` unset for `new_app` (no repo yet — created during `pr_creation`), or set to the current `git rev-parse HEAD` of the target project for `feature_addition`, `pr_url` unset, `open_risks: []`, `phases_completed: []`.
+
+For `feature_addition` (existing git repo): if `.ios-orchestrator/` is not already git-ignored in the target repo (`git check-ignore .ios-orchestrator`), append it to the repo's `.gitignore` (creating the file if needed) as part of initialization. This keeps orchestrator state and screenshots out of the user's repo; for `new_app`, the Developer's scaffold `.gitignore` covers it. This orchestrator-made `.gitignore` change is bookkeeping — exempt from every phase's scope check, like `state.json` (see `role-boundaries.md`).
 
 ## Resuming
 
