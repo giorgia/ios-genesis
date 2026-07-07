@@ -46,7 +46,7 @@ Replace the current SPM-first guidance ("scaffold … using Swift Package Manage
 
 - Scaffold an xcodegen-based Xcode project at `target_project_path`:
   - `project.yml` defining **only the app target** and its scheme. Template (proven by the counter app's follow-up run):
-    - `type: application`, `platform: iOS`, deployment target = latest stable iOS major (currently 17.0+; use judgment per `architecture_summary`)
+    - `type: application`, `platform: iOS`, deployment target = latest stable iOS major (use judgment per `architecture_summary`)
     - explicit `Info.plist` (`GENERATE_INFOPLIST_FILE: NO`) so the release manager has a real file to audit
     - `PrivacyInfo.xcprivacy` (empty-but-valid privacy manifest)
     - `Assets.xcassets` with an `AppIcon` placeholder set
@@ -62,7 +62,7 @@ Replace the current SPM-first guidance ("scaffold … using Swift Package Manage
 
 `feature_addition` behavior is unchanged (follow the existing project's structure and build system).
 
-SwiftUI Pro review, report format, and all other `implement` behavior are unchanged.
+SwiftUI Pro review and all other `implement` behavior are unchanged. The `implement` report format gains one line — `app_scheme: <AppName>` for `new_app` (`"n/a"` otherwise) — so the orchestrator can pass the scheme to the Visual Verifier deterministically instead of parsing it from the free-text `summary` (with `project.yml`'s `name:` as the resume-time fallback, per 2.1).
 
 ### 1.3 Test engineer changes (`agents/ios-test-engineer.md`)
 
@@ -87,6 +87,8 @@ Add to the bundle-id/versioning checklist guidance: a `PRODUCT_BUNDLE_IDENTIFIER
 
 At initialization for `feature_addition` (existing git repo): if `.ios-orchestrator/` is not already git-ignored in the target repo, append it to the repo's `.gitignore` (creating the file if needed). This keeps orchestrator state and screenshots out of user repos regardless of mode; for `new_app` the scaffold's `.gitignore` (1.2) covers it.
 
+Because this append happens before any subagent dispatch, `role-boundaries.md`'s scope check must treat the resulting uncommitted `.gitignore` change as orchestrator bookkeeping — exempt in every phase, exactly like `state.json` — otherwise every first `feature_addition` run would flag a phantom "Architect modified `.gitignore`" violation at the first checkpoint.
+
 ---
 
 ## Feature 2: visual verification
@@ -108,7 +110,7 @@ At initialization for `feature_addition` (existing git repo): if `.ios-orchestra
 1. Resolve the scheme: use `app_scheme`, or for `"discover"` run `xcodebuild -list` in `target_project_path` and pick the app scheme (use judgment; if ambiguous, pick the scheme matching the project name).
 2. Pick the newest available iPhone from `xcrun simctl list devices available`; boot it if not booted (`xcrun simctl boot`; already-booted is fine).
 3. Build for that simulator (`xcodebuild build -scheme … -destination …`), locate the `.app` via `xcodebuild -showBuildSettings` (`BUILT_PRODUCTS_DIR`/`FULL_PRODUCT_NAME`), then `xcrun simctl install booted <app>` and `xcrun simctl launch booted <bundle-id>` (bundle id via `-showBuildSettings` `PRODUCT_BUNDLE_IDENTIFIER`).
-4. Wait ~3 seconds for the UI to settle, then `xcrun simctl io booted screenshot .ios-orchestrator/screenshots/round-<N>-launch.png`. (`.ios-orchestrator/` is already gitignored by the scaffold.)
+4. Wait ~3 seconds for the UI to settle, then `xcrun simctl io booted screenshot .ios-orchestrator/screenshots/round-<N>-launch.png`. (`.ios-orchestrator/` is gitignored in both modes — by the scaffold's `.gitignore` for `new_app` (1.2), by the initialization append for `feature_addition` (1.6).)
 5. Read the screenshot (multimodal). Obtain the reference: `figma` → `get_screenshot` on the Figma file/frame; `bring_your_own` → `Read` local images / `WebFetch` URLs; `text`/`claude_design` → the screen's described hierarchy in `design_summary`.
 6. Compare **structurally**: every component in the design present, roughly the right shape/size/position, no clipped/collapsed/overlapping elements, no crash or blank screen. Do NOT flag minor spacing, font rendering, or color-space differences. Calibration example (from the dry run): a circular button whose border shape collapsed around a short glyph into a small pill — wrong shape and size, fails against any reference form.
 7. Round 2: additionally check each item in `previous_findings` — resolved or not.
@@ -160,7 +162,7 @@ Steps: read the screenshots and findings, fix each finding in the code, rebuild 
 
 ### 2.4 State & reference-doc changes
 
-- `state-schema.md`: `phase` enum gains `visual_verification`; new field `verification_round` (0 before the first verifier dispatch, then 1–2; monotonic within the phase, analogous to `review_round`); `phases_completed` artifact for the phase is `.ios-orchestrator/screenshots/` (or `"none"` if skipped).
+- `state-schema.md`: `phase` enum gains `visual_verification`; new field `verification_round` (0 before the first verifier dispatch, then 1–2; monotonic within the phase, analogous to `review_round`; the Initialization section gains `verification_round: 0` alongside `review_round: 0`); `phases_completed` artifact for the phase is `.ios-orchestrator/screenshots/` (or `"none"` if skipped).
 - `checkpoints.md`: persist `verification_round` as set by the loop (same rule as `review_round`); the checkpoint summary must include the verification verdict and reference the screenshot(s).
 - `role-boundaries.md`:
   - Widen the existing scope-check exemption from `state.json` to the whole `.ios-orchestrator/` directory (screenshots now live there too).
