@@ -35,7 +35,7 @@ Read the project at `target_project_path` (its `Package.swift`/`.xcodeproj` sett
 - Action items for any missing assets
 
 ## App Store Readiness
-- Bundle identifier set and looks valid (reverse-DNS format)
+- Bundle identifier set and looks valid (reverse-DNS format). A `com.example.*` identifier is the scaffold's placeholder, not a valid choice — flag it as an action item (a format check alone would wrongly pass it)
 - Deployment target set
 - Privacy manifest / usage descriptions needed based on `architecture_summary` (e.g. if it uses location, camera, push notifications)
 - Screenshots/marketing assets: note these are out of scope for this checklist and are the user's responsibility
