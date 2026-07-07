@@ -1,6 +1,6 @@
 # ios-genesis
 
-A Claude Code plugin that builds iOS apps with a team of six specialist AI subagents — architect, UI designer, developer, test engineer, code reviewer, and release manager — orchestrated through an 8-phase pipeline with human checkpoints, a real GitHub PR review loop, and a resumable state machine.
+A Claude Code plugin that builds iOS apps with a team of seven specialist AI subagents — architect, UI designer, developer, visual verifier, test engineer, code reviewer, and release manager — orchestrated through a 9-phase pipeline with human checkpoints, simulator-in-the-loop visual verification, a real GitHub PR review loop, and a resumable state machine.
 
 ```
 /ios-genesis ~/Projects/my-app "a habit tracker with streaks and reminders"
@@ -17,6 +17,7 @@ A single agent asked to "build an app" mixes concerns: it designs while implemen
 | `ios-architect` | Requirements, module breakdown, `docs/architecture.md` | Screen layouts, code |
 | `ios-ui-designer` | Screens, navigation, view hierarchy, `docs/design.md` + mockups | Architecture decisions, Swift code |
 | `ios-developer` | Implementation, scaffolding, builds, branches/commits/PRs | Redefining architecture/design, test code |
+| `ios-visual-verifier` | Simulator install/launch, launch-screen screenshots, structural comparison against the design | Editing files, committing, fixing its own findings |
 | `ios-test-engineer` | Test code, running the suite | Touching app code (bugs get escalated, not patched) |
 | `ios-code-reviewer` | PR review comments and verdicts | Pushing fixes itself |
 | `ios-release-manager` | `docs/release-checklist.md` from project state | Editing the project it audits |
@@ -29,8 +30,9 @@ Boundaries are *enforced*, not just prompted: after every phase the orchestrator
 
 ```mermaid
 flowchart LR
-    I[Interview] --> A[Architect] --> D[UI Designer] --> Dev[Developer] --> T[Test Engineer]
+    I[Interview] --> A[Architect] --> D[UI Designer] --> Dev[Developer] --> V[Visual Verifier] --> T[Test Engineer]
     T --> PR[PR Creation] --> R[Code Review] --> M[Merge] --> RM[Release Manager]
+    V -- "issues found" --> FixV[Developer: address visual] --> V
     R -- "changes requested" --> Fix[Developer: address review] --> Retest[Test Engineer: retest] --> R
 ```
 
@@ -43,6 +45,7 @@ The pipeline is built from nested feedback loops, each with an explicit exit con
 - **Build loop** — the developer builds with `swift build`/`xcodebuild`, fixes, and rebuilds; capped at 3 attempts, then it stops and reports the failure instead of thrashing.
 - **Test loop** — the test engineer runs the suite and repairs *test* code up to 3 attempts. If the failure looks like an app bug, it escalates rather than patching code it doesn't own.
 - **Review loop** — a real `gh` PR review, capped at 2 rounds: reviewer requests changes → developer addresses them → test engineer retests if behavior changed → reviewer verifies its own previous comments. Unresolved round-2 issues go to the human, never auto-merged.
+- **Visual verification loop** — a dedicated verifier agent installs the built app on a simulator, screenshots the launch screen, and structurally compares it against the design reference (the Figma mockup, your provided designs, or the design doc); discrepancies route back through the developer, capped at 2 rounds. This is the loop that catches the class of bug invisible to compilers, unit tests, and diff-reading reviewers — a button that renders collapsed, a missing component, a crash on launch.
 - **Verification loops** — the orchestrator independently re-runs tests before presenting results, and the UI designer must verify a generated Figma file actually contains the mockups (via metadata/screenshot inspection) before linking it — because "the tool said it worked" is not evidence.
 - **Human checkpoint loop** — "make changes first" re-dispatches any phase with your feedback appended, then re-runs the full checkpoint from the top.
 
@@ -72,7 +75,7 @@ Requires [Claude Code](https://claude.com/claude-code), an authenticated [`gh` C
 /plugin install ios-genesis@ios-orchestrator
 ```
 
-Restart the session (or `/reload-plugins`), then verify `/agents` lists the six `ios-genesis:*` subagents.
+Restart the session (or `/reload-plugins`), then verify `/agents` lists the seven `ios-genesis:*` subagents.
 
 ### Usage
 
@@ -90,9 +93,8 @@ Four design modes, chosen at the first UI phase: **text-only** (design doc), **F
 
 Listed here because honest edges matter more than polish:
 
-- **No visual verification loop yet.** Every loop currently terminates at "compiles and unit tests pass" — nothing renders the app. The next milestone is simulator-in-the-loop verification: install, launch, screenshot via `simctl`, and multimodal comparison against the Figma mockup. (The dry run shipped a button whose circle collapsed around a short SF Symbol glyph — invisible to the compiler, the unit tests, and a diff-reading reviewer. This is the loop that catches it.)
-- **SPM-first scaffolding.** New apps default to a Swift package; an installable `.xcodeproj` app target (via xcodegen) currently requires a follow-up run. The default should invert: xcodegen app shell + SPM feature package.
-- **XCTest, not Swift Testing.** The test engineer should default to Swift Testing (`@Test`/`#expect`) with XCUITest for UI flows once app targets are the default.
+- **Launch screen only.** The visual verifier can't navigate — `simctl` has no tap support — so screens behind interaction go unverified (they're reported, not silently skipped). Simulator interaction via XcodeBuildMCP is the next milestone.
+- **XCTest, not Swift Testing.** The test engineer should default to Swift Testing (`@Test`/`#expect`) for unit tests.
 - **No scripted evals.** Validation was a manual (if adversarial) dry run; a headless eval harness that runs a fixed spec through the pipeline and asserts on artifacts, builds, and tests is planned.
 - **Uniform model routing.** Every agent runs on the same model; per-role routing (stronger for architecture/review, faster for mechanical fixes) is planned.
 
