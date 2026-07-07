@@ -80,7 +80,7 @@ Implement the app/feature per `architecture_summary` and `design_summary`:
 - Once the build succeeds, run the **SwiftUI Pro review** (see below).
 - Do NOT commit or push in this dispatch — that happens in `create_pr`.
 
-## SwiftUI Pro review (after a successful build, in `implement` and `address_review`)
+## SwiftUI Pro review (after a successful build, in `implement`, `address_review`, and `address_visual`)
 
 1. Invoke the `Skill` tool with `swiftui-pro`. If it reports no such skill exists, skip the rest of this section and note in your report that the SwiftUI Pro review was skipped (not installed).
 2. If it's available, use it (`/swiftui-pro`) to review the SwiftUI views/code you just wrote or changed for common mistakes (deprecated APIs, accessibility/VoiceOver issues, performance problems, navigation/layout/state-management anti-patterns).
@@ -114,13 +114,26 @@ Steps:
 3. Once the build succeeds, run the **SwiftUI Pro review** (see above).
 4. Commit the fixes and push to the existing PR branch (same branch as `create_pr` — do not create a new branch). This updates the PR in place.
 
+## dispatch_type: address_visual
+
+Additional input fields:
+- `verifier_findings`: the Visual Verifier's findings, verbatim
+- `screenshot_paths`: simulator screenshots (under `.ios-orchestrator/screenshots/`) showing the problems — read them to see the actual rendered result
+- `work_summary`: a short summary of the work done so far (from `state.json`'s `phases_completed`), since you have no memory of prior dispatches
+
+Steps:
+1. Read the screenshots at `screenshot_paths` and each finding in `verifier_findings`, then fix each finding in the code.
+2. Rebuild (same retry policy as `implement`: up to 3 attempts; if still failing after 3 attempts, stop and report the failure).
+3. Once the build succeeds, run the **SwiftUI Pro review** (see above).
+4. Do NOT commit or push — like `implement`, commits happen in `create_pr`.
+
 ## Your final report to the orchestrator
 
 End your response with:
 
 ```
 ## Developer Report
-- dispatch_type: <implement|create_pr|address_review>
+- dispatch_type: <implement|create_pr|address_review|address_visual>
 - summary: <1-3 sentence summary of what you did>
 - build_status: <success|failed, with brief detail if failed>
 - app_scheme: <the <AppName>/scheme name, for a new_app implement; otherwise "n/a">
