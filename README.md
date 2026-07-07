@@ -57,7 +57,7 @@ Stop at any checkpoint and re-run `/ios-genesis <path>` later: the orchestrator 
 
 ## Field-tested
 
-The pipeline was validated end-to-end against a real GitHub repository: a counter app went from interview to squash-merged PR to release checklist across all eight phases. The dry run wasn't a demo — it was designed to find failures, and it found four real ones that are now fixed:
+The pipeline was validated end-to-end against a real GitHub repository: a counter app went from interview to squash-merged PR to release checklist across every phase. The dry run wasn't a demo — it was designed to find failures, and it found four real ones that are now fixed:
 
 1. **Plugin manifest bug** — `plugin.json` declared `agents`/`skills` paths that Claude Code's schema rejects (they're auto-discovered); the plugin wouldn't install.
 2. **Silent Figma failure** — the UI designer created an empty Figma file and reported success, because generation was never verified. Now: mandatory metadata/screenshot verification with a retry-then-report-as-risk fallback.

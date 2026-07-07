@@ -45,11 +45,11 @@ Runs inside the `visual_verification` phase (both modes, only when `screens_affe
 
 Dispatch inputs for `ios-visual-verifier`: `mode`, `target_project_path`, `design_mode`, `design_summary`, `design_reference` (the Figma file link for `figma`, `design_sources` for `bring_your_own`, `"none"` otherwise), `app_scheme` (the Developer's reported `app_scheme` for `new_app` — on resume, `project.yml`'s `name:` — or `"discover"` for `feature_addition`), and `verification_round`.
 
-1. Capture `git status --porcelain` (the scope-check baseline — see `role-boundaries.md`). Set `verification_round` to 1. Dispatch `ios-visual-verifier`.
+1. If `target_project_path` is a git repository, capture `git status --porcelain` (the scope-check baseline — see `role-boundaries.md`; on `new_app` there is no repo yet and the scope check is skipped). Set `verification_round` to 1. Dispatch `ios-visual-verifier`.
 2. `status: pass` → run the standard checkpoint (`checkpoints.md`), proceed to `test_engineer`.
 3. `status: skipped` → append an `open_risks` entry with the skip reason, run the standard checkpoint, proceed. (Do not loop.)
 4. `status: issues_found`:
-   a. Dispatch `ios-developer` with `dispatch_type: address_visual`, plus its always-required fields (`mode`, `target_project_path`, `architecture_summary`, `design_summary`), `verifier_findings` (verbatim), `screenshot_paths`, and `work_summary` (from `phases_completed`). If the developer reports a build failure after its 3 attempts, stop looping and surface the failure at the checkpoint - the user decides.
+   a. Dispatch `ios-developer` with `dispatch_type: address_visual`, plus its always-required fields (`mode`, `target_project_path`, `architecture_summary`, `design_summary`), `verifier_findings` (verbatim), `screenshot_paths` (from the verifier report's `screenshots` field), and `work_summary` (from `phases_completed`). If the developer reports a build failure after its 3 attempts, stop looping and surface the failure at the checkpoint - the user decides.
    b. If `verification_round == 1`: increment to 2, re-dispatch the verifier with `previous_findings` (the round-1 findings), and go to step 2.
    c. If `verification_round == 2` and findings remain: stop looping. Append the unresolved findings as `open_risks` entries and surface them at the checkpoint - the user decides (Continue / Make changes first / Stop).
 5. The checkpoint runs once, after the loop concludes (like `code_review`): `phase_status: "complete"` either way, `verification_round` persisted as set by the loop.

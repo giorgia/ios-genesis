@@ -24,7 +24,7 @@ For `bring_your_own` design mode, the files the UI Designer *reads* (per `design
 
 ### How to check
 
-If `target_project_path` doesn't exist yet, or exists but isn't a git repository yet, skip the scope check entirely for that phase - there's no git history to check against. This is expected for `new_app`'s `architect`, `ui_designer`, and `developer` (`implement`) phases, since the repo isn't created until `pr_creation`'s `git init` (see `agents/ios-developer.md`).
+If `target_project_path` doesn't exist yet, or exists but isn't a git repository yet, skip the scope check entirely for that phase - there's no git history to check against. This is expected for `new_app`'s `architect`, `ui_designer`, `developer` (`implement`), `visual_verification`, and `test_engineer` phases, since the repo isn't created until `pr_creation`'s `git init` (see `agents/ios-developer.md`). For `visual_verification` this means the delta-based check below simply doesn't run on `new_app` — the phase's file discipline is still covered at `pr_creation`, whose scope check lists every file in the new repo's history.
 
 Otherwise, whether the orchestrator uses `git status --porcelain` (uncommitted changes) or a diff against `last_commit_sha` (committed changes) depends on whether the phase commits its own work:
 
