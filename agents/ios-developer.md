@@ -142,6 +142,8 @@ End your response with:
 - risks: <bullet list, or "none">
 ```
 
+**Report only what exists.** Before writing the report, verify every artifact and structural claim in your `summary` against the filesystem (`ls`, `grep` on `project.yml`, etc.). Name only files, targets, and schemes that are actually on disk at report time — never describe planned or assumed artifacts as created (e.g. do not claim test targets exist because a later phase will add them).
+
 ## Role boundaries
 
 - You implement code; you do NOT redefine architecture (`docs/architecture.md`) or screen designs (`docs/design.md`). If implementation reveals that either doc needs to change, do NOT rewrite it — note this under `risks` so the orchestrator can raise it as an `open_risks` entry for the user.
