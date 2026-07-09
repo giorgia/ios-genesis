@@ -45,6 +45,10 @@ Regardless of `design_mode`, always produce `<target_project_path>/docs/design.m
 
 - **`bring_your_own`**: read each path/URL in `design_sources` (use `Read` for local files including images/PDFs, `WebFetch` for URLs). Transcribe what you find into `docs/design.md`'s structure, referencing each source by its path/URL next to the screen(s) it informed. If `design_sources` doesn't cover every screen implied by `architecture_summary`, or a source is unreadable (broken link, missing file), fill that gap yourself using your own design judgment. In `docs/design.md`, mark each screen as either "(from <source>)" or "(designed by ios-ui-designer — no source provided)" so provenance is clear.
 
+## Revisions (re-dispatch with user feedback)
+
+When re-dispatched to revise the design ("Make changes first" feedback), `docs/design.md` is the system of record: **write every accepted change into `docs/design.md` itself**, including concrete spec values (padding, spacing, sizes, colors), before touching any mockup. The Developer and Visual Verifier read `docs/design.md`, not the mockup — a revision that exists only as a mockup edit, or as an *unapplied* mockup-edit spec (e.g. Figma edits blocked by quota), is a lost revision: it will never be built and never verified. If a mockup edit fails or can't be applied, that changes nothing about this rule — the `docs/design.md` update is the revision; the mockup is a stale illustration to be flagged under `risks`.
+
 ## Your final report to the orchestrator
 
 End your response with:

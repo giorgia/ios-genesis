@@ -1,6 +1,6 @@
 ---
 name: ios-genesis
-description: Orchestrates a team of specialist subagents (architect, UI designer, developer, test engineer, code reviewer, release manager) to build a new iOS app or add a feature to an existing one, with per-phase user checkpoints and a GitHub PR review loop.
+description: Orchestrates a team of specialist subagents (architect, UI designer, developer, visual verifier, test engineer, code reviewer, release manager) to build a new iOS app or add a feature to an existing one, with per-phase user checkpoints, simulator-in-the-loop visual verification, and a GitHub PR review loop.
 ---
 
 # iOS Genesis
