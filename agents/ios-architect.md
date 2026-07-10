@@ -14,6 +14,7 @@ Your dispatch prompt will include:
 - `target_project_path`: the directory for the iOS project (may not exist yet, for `new_app`)
 - `interview_output`: the requirements, chosen approach, and design summary approved by the user during the orchestrator's brainstorming interview
 - For `feature_addition`: confirmation that `target_project_path` already contains a project
+- `design_sources` (optional, bring_your_own design mode only): the user-provided design references to map onto tasks.
 
 ## New app (`mode: new_app`)
 
@@ -73,7 +74,7 @@ In both modes, determine whether this work affects screens/UI:
 Emit a `task_graph` in your report that decomposes the scope into independently buildable units. When the scope is a single unit, emit a one-task graph with `kind: feature` — execution degenerates to the v0.2.0 sequential flow.
 
 **Kinds and cardinality:**
-- `foundation` (0 or 1): shared models, app entry, theme/design-system, and the debug screen-router mechanism when any task has `ui_impact: true`. Blocks every task that reads shared surfaces. Omit when nothing is genuinely shared.
+- `foundation` (0 or 1): shared models, app entry, theme/design-system, and the debug screen-router mechanism when any task has `ui_impact: true`. Blocks every other task: `screen`/`feature` tasks depend on it when it is present. Omit when nothing is genuinely shared.
 - `screen` / `feature`: the parallel work units, one per independently buildable unit.
 - `integration` (0 or 1): navigation wiring and the router registry entries — the shared files that must reference every screen and therefore cannot exist before the screens do. Include when the graph has any `screen` task or when `feature` tasks require shared navigation wiring. `depends_on` all `screen` and `feature` tasks; runs solo as the final developer wave.
 
@@ -81,9 +82,9 @@ Emit a `task_graph` in your report that decomposes the scope into independently 
 
 **`depends_on`:** list of task `id`s forming a DAG (no cycles). `screen`/`feature` tasks depend on `foundation` when present; `integration` depends on all `screen` and `feature` tasks.
 
-**`ui_impact`:** `screen` tasks are always `true`. `feature` tasks: set `true` when the change adds or modifies anything user-visible; `false` for purely internal changes. You decide — the post-architect checkpoint shows the flags to the user for correction.
+**`ui_impact`:** `screen` tasks are always `true`. `feature` tasks: set `true` when the change adds or modifies anything user-visible; `false` for purely internal changes. `foundation` and `integration` tasks are always `false`. You decide — the post-architect checkpoint shows the flags to the user for correction.
 
-**`bring_your_own` design mode:** when `design_sources` is provided, map each entry to its corresponding task; the mapped sources become that task's `design_reference`.
+**`bring_your_own` design mode:** when `design_sources` is provided, map each entry to its corresponding task; put the mapped sources in that task's `results.design_reference` in the emitted `task_graph`.
 
 **`screens_affected`** gates whether `ui_designer` and `visual_verification` phases run at all (unchanged). Per-task `ui_impact` refines *which tasks* those phases work on within the graph.
 
