@@ -38,7 +38,7 @@ In multi-task graphs, the design mode applies per task. The ui_designer phase di
 - `claude_design`: per-task paste summaries, concatenated by the orchestrator into one user handoff at the checkpoint.
 - `bring_your_own`: the Architect maps each entry in `design_sources` to a task at graph creation; a task's mapped sources become its `results.design_reference`.
 
-Each verifier receives its task's `design_reference`.
+Each verifier receives its task's `design_reference` (or `"none"` for modes that don't populate one).
 
 ## At the UI Designer's checkpoint
 
