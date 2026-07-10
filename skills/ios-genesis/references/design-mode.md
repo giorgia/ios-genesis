@@ -40,6 +40,8 @@ In multi-task graphs, the design mode applies per task. The ui_designer phase di
 
 Each verifier receives its task's `design_reference` (or `"none"` for modes that don't populate one).
 
+Only `figma` links (and the Architect's `bring_your_own` mappings, stored at graph creation) are persisted to `results.design_reference`; a designer report of `"none"` never overwrites an existing value. `claude_design` summaries are checkpoint-transient — concatenated into the user handoff at the checkpoint — and are not persisted to state.
+
 ## At the UI Designer's checkpoint
 
 - **text / bring_your_own**: standard checkpoint (summary + Risks/Blockers + Continue/Make changes/Stop). For `bring_your_own`, the summary additionally notes which screens came from `design_sources` vs. were filled in by the UI Designer, per the per-screen provenance annotations in `docs/design.md` (`design_mode_extra` will be `"none"` for this mode).
