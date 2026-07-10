@@ -38,12 +38,12 @@ Load these as needed during the run - don't read them all upfront:
 
 3. **Orchestrator interview**: invoke `superpowers:brainstorming` as described in `orchestration-flow.md`'s "Step 0", using `description` (the second argument) as the starting point for the conversation. The result is `interview_output`, passed to the Architect.
 
-4. **Run the phase sequence** in `orchestration-flow.md` for the determined mode (`new_app` or `feature_addition`), starting at `architect` (or at the resumed `phase`, if step 2 was a resume). Phases run their task projections in waves (see `orchestration-flow.md`'s "Task graph and waves"); the orchestrator maintains the live task board per `task-board.md` throughout. After each phase, run the full checkpoint procedure from `checkpoints.md` before moving on.
+4. **Run the phase sequence** in `orchestration-flow.md` for the determined mode (`new_app` or `feature_addition`), starting at `architect` (or at the resumed `phase`, if step 2 was a resume). Phases run their projections in waves (see `orchestration-flow.md`'s "Task graph and waves"); the orchestrator maintains the live task board per `task-board.md` throughout. After each phase, run the full checkpoint procedure from `checkpoints.md` before moving on.
 
 5. **Run completes** when the final phase's checkpoint (`release_manager` for `new_app`, or `merge`/`release_manager` for `feature_addition` - see `orchestration-flow.md`) is presented and the user does not choose to continue further (there is no next phase). Tell the user the run is complete and summarize the final state (PR merged, docs written, any remaining `open_risks`).
 
 ## Notes
 
 - Subagents have no memory between dispatches - every dispatch must include all context the subagent needs (relevant `state.json` fields, prior artifacts/summaries, user feedback for "Make changes first" re-dispatches, reviewer comments for review-loop re-dispatches).
-- Fan-out dispatches go out as concurrent Agent calls in one message; every dispatch still carries all context the subagent needs.
+- Fan-out dispatches go out as concurrent `Agent` calls in one message; every dispatch still carries all context the subagent needs.
 - If the user chooses "Stop here" at any checkpoint, end the session normally - `state.json` is already up to date for a future `/ios-genesis <target_project_path> ...` invocation to resume.
