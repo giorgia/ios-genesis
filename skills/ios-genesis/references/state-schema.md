@@ -1,6 +1,6 @@
 # State File Schema
 
-`<target-project-path>/.ios-orchestrator/state.json` is written and updated by the orchestrator (not subagents) after each phase completes. It enables resuming a run later and tracks cumulative risks/blockers.
+`<target-project-path>/.ios-orchestrator/state.json` is written by the orchestrator at initialization, at wave ends, and at phase checkpoints. It enables resuming a run later and tracks cumulative risks/blockers.
 
 ## Schema
 
@@ -8,12 +8,11 @@
 {
   "mode": "new_app",
   "interview_output": "Build a single-screen counter app...",
-  "phase": "code_review",
+  "phase": "visual_verification",
   "phase_status": "in_progress",
-  "review_round": 1,
-  "verification_round": 1,
+  "review_round": 0,
   "screens_affected": true,
-  "design_mode": "text",
+  "design_mode": "figma",
   "design_sources": [],
   "task_graph": {
     "cap": 3,
@@ -27,8 +26,7 @@
         "ui_impact": false,
         "status": "complete",
         "results": {
-          "build_status": "complete",
-          "tests_status": "complete"
+          "build_status": "success"
         }
       },
       {
@@ -42,7 +40,7 @@
         "results": {
           "design_status": "complete",
           "design_reference": "https://figma.com/file/abc",
-          "build_status": "complete",
+          "build_status": "success",
           "verify_status": "pending",
           "verification_round": 0,
           "tests_status": "pending"
@@ -51,7 +49,6 @@
     ]
   },
   "last_commit_sha": "a1b2c3d4...",
-  "pr_url": "https://github.com/user/repo/pull/1",
   "open_risks": [
     {
       "id": "risk-1",
@@ -96,7 +93,7 @@
     - `status`: `pending` | `in_progress` | `complete` | `failed` | `dropped`.
     - `results`: object accumulating per-phase outcomes as the task progresses: `design_status`, `design_reference`, `build_status`, `verify_status`, `verification_round`, `tests_status`.
   - Written by the orchestrator only, after validating the Architect-reported graph (disjointness + DAG). On validation failure: re-dispatch the Architect with the defect named (max 2 retries), then surface at the checkpoint.
-  - **Single-task graphs**: execution degenerates to the v0.2.0 sequential flow; top-level `verification_round`/`review_round` keep their existing meaning. **Multi-task graphs**: round counters live in each task's `results`. **Pre-0.3.0 state files** (no `task_graph` key): resume with the legacy sequential flow unchanged, including the legacy git model.
+  - **Single-task graphs**: execution degenerates to the v0.2.0 sequential flow; top-level `verification_round`/`review_round` keep their existing meaning. **Multi-task graphs**: `verification_round` lives in each task's `results`; `review_round` remains top-level in all modes (code_review is whole-run). **Pre-0.3.0 state files** (no `task_graph` key): resume with the legacy sequential flow unchanged, including the legacy git model. A resume with no `task_graph` but `last_commit_sha` set while `phase` is `architect` is a v0.3.0 pre-graph resume — git model already initialized (working branch exists); do NOT route it to the legacy pr_creation init path.
 - `last_commit_sha`: HEAD of the working branch as of the last orchestrator commit. Updated at every orchestrator commit — each `wip(<phase>)` checkpoint commit and each `wip(<phase>/wave-N)` wave-build commit. Set at git initialization (on the working branch after the initial commit) and kept current throughout the run. All run commits land on the working branch until `merge`; post-merge phases (`release_manager`) commit to the default branch, and `last_commit_sha` tracks those too. Pre-0.3.0 state files may have this unset for `new_app` runs that had not yet reached `pr_creation`; the legacy resume path handles that case (see Resuming, below).
 - `pr_url`: set once `pr_creation` completes; used by `code_review` and `merge`. Unset (key omitted) before then.
 - `open_risks`: list of risks/blockers raised by subagents that haven't been resolved or dismissed. Each entry has:
