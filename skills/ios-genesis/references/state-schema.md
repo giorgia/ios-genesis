@@ -14,6 +14,7 @@
   "screens_affected": true,
   "design_mode": "figma",
   "design_sources": [],
+  "app_scheme": "TipTop",
   "task_graph": {
     "cap": 3,
     "tasks": [
@@ -42,8 +43,7 @@
           "design_reference": "https://figma.com/file/abc",
           "build_status": "success",
           "verify_status": "pending",
-          "verification_round": 0,
-          "tests_status": "pending"
+          "verification_round": 0
         }
       }
     ]
@@ -63,6 +63,18 @@
       "completed_at": "2026-06-11T10:00:00Z",
       "summary": "3 modules: Networking, Persistence, UI. Single-target SwiftUI app.",
       "artifact": "docs/architecture.md"
+    },
+    {
+      "phase": "ui_designer",
+      "completed_at": "2026-06-11T11:00:00Z",
+      "summary": "1 screen designed: Home. Figma file linked, all tokens exported.",
+      "artifact": "docs/design.md"
+    },
+    {
+      "phase": "developer",
+      "completed_at": "2026-06-11T13:30:00Z",
+      "summary": "T1 (foundation) and T2 (Home screen) implemented. Build passing on both tasks.",
+      "artifact": "sources+project.yml"
     }
   ]
 }
