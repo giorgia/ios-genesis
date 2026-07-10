@@ -68,6 +68,27 @@ In both modes, determine whether this work affects screens/UI:
 - `new_app`: almost always `true` (apps have at least one screen) — `false` only for a non-UI target (e.g. a CLI tool or background service, if that's genuinely what was requested).
 - `feature_addition`: `true` if the change adds/modifies/removes any screen or visible UI component; `false` for purely internal changes (e.g. refactoring a data layer, fixing a non-visible bug).
 
+## Task graph
+
+Emit a `task_graph` in your report that decomposes the scope into independently buildable units. When the scope is a single unit, emit a one-task graph with `kind: feature` — execution degenerates to the v0.2.0 sequential flow.
+
+**Kinds and cardinality:**
+- `foundation` (0 or 1): shared models, app entry, theme/design-system, and the debug screen-router mechanism when any task has `ui_impact: true`. Blocks every task that reads shared surfaces. Omit when nothing is genuinely shared.
+- `screen` / `feature`: the parallel work units, one per independently buildable unit.
+- `integration` (0 or 1): navigation wiring and the router registry entries — the shared files that must reference every screen and therefore cannot exist before the screens do. Include when the graph has any `screen` task or when `feature` tasks require shared navigation wiring. `depends_on` all `screen` and `feature` tasks; runs solo as the final developer wave.
+
+**`owned_files`:** literal directory prefixes (e.g. `"App/Views/Home/"`) or single file paths. Must be exclusive: no owned path may be a path-prefix of another task's owned path. Assign shared infrastructure to `foundation`, not to individual screen/feature tasks.
+
+**`depends_on`:** list of task `id`s forming a DAG (no cycles). `screen`/`feature` tasks depend on `foundation` when present; `integration` depends on all `screen` and `feature` tasks.
+
+**`ui_impact`:** `screen` tasks are always `true`. `feature` tasks: set `true` when the change adds or modifies anything user-visible; `false` for purely internal changes. You decide — the post-architect checkpoint shows the flags to the user for correction.
+
+**`bring_your_own` design mode:** when `design_sources` is provided, map each entry to its corresponding task; the mapped sources become that task's `design_reference`.
+
+**`screens_affected`** gates whether `ui_designer` and `visual_verification` phases run at all (unchanged). Per-task `ui_impact` refines *which tasks* those phases work on within the graph.
+
+**Re-dispatch:** if the orchestrator reports a validation defect (ownership overlap or `depends_on` cycle), fix the graph and re-emit it.
+
 ## Your final report to the orchestrator
 
 End your response with a clearly delimited summary block:
@@ -78,6 +99,22 @@ End your response with a clearly delimited summary block:
 - artifact: <docs/architecture.md, or "none (feature addition)">
 - summary: <1-3 sentence summary of what you produced>
 - risks: <bullet list, or "none">
+- task_graph:
+  {
+    "cap": 3,
+    "tasks": [
+      {
+        "id": "T1",
+        "title": "<descriptive title>",
+        "kind": "foundation|screen|feature|integration",
+        "owned_files": ["<literal-directory-prefix-or-file>"],
+        "depends_on": [],
+        "ui_impact": false,
+        "status": "pending",
+        "results": {}
+      }
+    ]
+  }
 ```
 
 ## Role boundaries
