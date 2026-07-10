@@ -30,6 +30,16 @@ If the user doesn't express a preference, default to `design_mode: "text"`.
 
 Pass `design_mode` (and `design_sources` if `bring_your_own`) to the UI Designer in its dispatch prompt - see `agents/ios-ui-designer.md` for how each mode affects its output.
 
+## Fan-out in multi-task graphs
+
+In multi-task graphs, the design mode applies per task. The ui_designer phase dispatches one agent per projected task (`ui_impact: true`); each agent returns its design section, which the orchestrator assembles into `docs/design.md`. Per design mode:
+
+- `figma`: each task's mockup is its own Figma file; the link is stored in that task's `results.design_reference` (superseding the single `design_mode_extra` flow for single-task graphs).
+- `claude_design`: per-task paste summaries are concatenated at the checkpoint.
+- `bring_your_own`: the Architect maps each entry in `design_sources` to a task at graph creation; a task's mapped sources become its `results.design_reference`.
+
+Each verifier receives its task's `design_reference`.
+
 ## At the UI Designer's checkpoint
 
 - **text / bring_your_own**: standard checkpoint (summary + Risks/Blockers + Continue/Make changes/Stop). For `bring_your_own`, the summary additionally notes which screens came from `design_sources` vs. were filled in by the UI Designer, per the per-screen provenance annotations in `docs/design.md` (`design_mode_extra` will be `"none"` for this mode).
