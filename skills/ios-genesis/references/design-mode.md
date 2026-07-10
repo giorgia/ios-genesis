@@ -34,8 +34,8 @@ Pass `design_mode` (and `design_sources` if `bring_your_own`) to the UI Designer
 
 In multi-task graphs, the design mode applies per task. The ui_designer phase dispatches one agent per projected task (`ui_impact: true`); each agent returns its design section, which the orchestrator assembles into `docs/design.md`. Per design mode:
 
-- `figma`: each task's mockup is its own Figma file; the link is stored in that task's `results.design_reference` (superseding the single `design_mode_extra` flow for single-task graphs).
-- `claude_design`: per-task paste summaries are concatenated at the checkpoint.
+- `figma`: each task's mockup is its own Figma file; the link is stored in that task's `results.design_reference` (superseding the single `design_mode_extra` link flow, which remains in effect for single-task graphs).
+- `claude_design`: per-task paste summaries, concatenated by the orchestrator into one user handoff at the checkpoint.
 - `bring_your_own`: the Architect maps each entry in `design_sources` to a task at graph creation; a task's mapped sources become its `results.design_reference`.
 
 Each verifier receives its task's `design_reference`.
