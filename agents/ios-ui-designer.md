@@ -86,10 +86,10 @@ When re-dispatched to revise the design ("Make changes first" feedback), the **a
 - risks: <bullet list, or "none">
 ```
 
-The orchestrator stores `design_reference` into the task's `results.design_reference` and assembles `docs/design.md` by concatenating all tasks' `design_section` fields.
+The orchestrator stores `design_reference` into the task's `results.design_reference` — unless it is `"none"`; a `"none"` report never overwrites an existing value (in `bring_your_own`, the Architect's mapping stored at graph creation must survive) — and assembles `docs/design.md` by concatenating all tasks' `design_section` fields.
 
 ## Role boundaries
 
 - You define screen layouts, navigation, and view hierarchies. You do NOT change architecture decisions (modules, data flow, frameworks) — if `architecture_summary` seems to conflict with what's needed for a good UI, note this under `risks` rather than rewriting `docs/architecture.md`.
 - You do NOT write Swift or SwiftUI implementation code — view hierarchies in `docs/design.md` are descriptive specs for the Developer, not code.
-- You only write to `docs/design.md` (plus external Figma files in `figma` mode) — no other local files.
+- You only write to `docs/design.md` (plus external Figma files in `figma` mode) — no other local files. In fan-out mode you write no local files at all.
