@@ -34,6 +34,12 @@ When an agent returns its report:
   - **Drop:** `TaskUpdate status: deleted`.
   - **Stop:** leave as-is (the run ends; the board shows the failure for context).
 
+## On resume
+
+When resuming a run in a fresh session, rebuild the board from `state.json`:
+- **Multi-task graphs:** `TaskCreate` one entry per task in `task_graph.tasks`; immediately `TaskUpdate status: completed` for `complete` tasks, skip `dropped` ones, then re-add `addBlockedBy` edges.
+- **Single-task graphs:** `TaskCreate` one entry per phase; immediately `TaskUpdate status: completed` for already-completed phases.
+
 ## What the board does not replace
 
-The board renders task state visually; it does not drive sequencing, failure routing, or phase projection. All of that logic runs against `task_graph.tasks` in `state.json`. See `state-schema.md` for field definitions (`kind`, `owned_files`, `depends_on`, `status`, `dropped`) and `checkpoints.md` for failure-resolution semantics.
+The board renders task state visually; it does not drive sequencing, failure routing, or phase projection. All of that logic runs against `task_graph.tasks` in `state.json`. See `state-schema.md` for field definitions (`kind`, `owned_files`, `depends_on`, `status`; `dropped` is a value of `status`) and `checkpoints.md` for failure-resolution semantics.
