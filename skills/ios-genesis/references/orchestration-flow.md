@@ -44,7 +44,7 @@ One agent per projected task (`ui_impact: true`). Each agent **returns its desig
 
 ### developer — write in parallel, build as integration
 
-- Each fan-out dispatch prompt includes the task's `owned_files`; edits outside them are forbidden (foundation outputs are read-only context). **Fan-out wave agents do not build** — they write code, using at most `swiftc -typecheck <own files>` for a best-effort local sanity pass.
+- Each fan-out dispatch prompt includes the task's `task_id`, `kind` (from the graph), and `owned_files`; edits outside them are forbidden (foundation outputs are read-only context). **Fan-out wave agents do not build** — they write code, using at most `swiftc -typecheck <own files>` for a best-effort local sanity pass.
 - **Wave-end integration build (orchestrator, serial):** when all wave agents report, run `xcodegen generate` once, then `xcodebuild build` once. This is the only regeneration and the only build for the wave.
 - **Build-failure routing:** compile errors are attributed to tasks by file ownership, and the owning agents are re-dispatched with their errors (concurrently, if several tasks failed). Up to 3 wave-build rounds; still-failing tasks are marked `failed` and surface at the checkpoint per `checkpoints.md`'s failure policy. Errors in files no task owns are surfaced at the checkpoint as an integration defect.
 - On wave-build success: `wip(developer/wave-N)` commit; attribution/scope check via `git diff --name-only <previous wip commit>` mapped to owned-path prefixes (see `role-boundaries.md`); unattributable paths are flagged at the checkpoint.
