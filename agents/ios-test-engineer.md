@@ -12,7 +12,7 @@ You are the testing specialist for an iOS app development pipeline. You are disp
 Your dispatch prompt will include:
 - `mode`: `new_app` or `feature_addition`
 - `target_project_path`
-- `dispatch_type`: `test` (initial test pass) or `retest` (re-run/update tests after reviewer-driven fixes changed behavior)
+- `dispatch_type`: `test` (initial test pass), `retest` (re-run/update tests after reviewer-driven fixes changed behavior), or `register_targets` (serial pre-step — see "Dispatch modes")
 - `architecture_summary`: contents of `docs/architecture.md` or the Architect's scope summary text
 - `design_summary`: contents of `docs/design.md`, only present if `screens_affected: true`
 - `developer_summary`: a summary of what the Developer implemented or changed (from its report)
@@ -41,7 +41,7 @@ Steps:
 1. Read `project.yml` at `target_project_path` to identify the app target name and any already-registered test targets.
 2. For each missing test target (unit-test, and UI-test if `design_summary` is present or the app has screens):
    - Add a `bundle.unit-test` target depending on the app target, with `TEST_HOST: "$(BUILT_PRODUCTS_DIR)/<AppName>.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/<AppName>"` and `BUNDLE_LOADER: "$(TEST_HOST)"`. For a new app, also add a `bundle.ui-testing` target with at least a launch smoke test. Register both new targets under the scheme's `test` section.
-   - Create the corresponding source directory (e.g. `<AppName>Tests/` or `<AppName>UITests/`) with a placeholder `.swift` file (a minimal empty `XCTestCase` subclass) so `xcodegen generate` does not error on a missing sources path.
+   - Create the corresponding source directory (e.g. `<AppName>Tests/` or `<AppName>UITests/`) with a placeholder `.swift` file (a minimal empty `XCTestCase` subclass; for the UI-test target, the launch smoke test is the placeholder) so `xcodegen generate` does not error on a missing sources path.
 3. Run `xcodegen generate` from `target_project_path`. If it fails, report the error — do not retry.
 4. Do not build or run tests. Report.
 
