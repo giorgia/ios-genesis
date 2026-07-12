@@ -75,20 +75,20 @@ Implement the app/feature per `architecture_summary` and `design_summary`:
   - Run `xcodegen generate` after writing or changing `project.yml`, and keep both `project.yml` and the generated `.xcodeproj` (committed later at `create_pr`) so the repo is usable without xcodegen installed. If `xcodegen generate` fails, treat it as a build failure (it counts against the build attempts below).
   - Note the placeholder `com.example.<AppName>` bundle identifier under `risks` in your report — the user must replace it before any App Store work.
 - **`feature_addition`**: modify the existing project at `target_project_path` to add/change the functionality described in `architecture_summary`/`design_summary`, following the existing project's structure and conventions.
-- **Multi-task graph dispatch** — when the prompt includes `task_id` and `owned_files`, you are in a task-graph wave. Behavior depends on `kind` (the task's `kind` from the graph):
-  - `foundation` or `integration` (**solo wave**): run the full build-until-compiles loop below. Foundation's job is scaffolding shared models, app entry, theme, and the debug screen-router mechanism (when the graph has verifier work; in `feature_addition` the router mechanism belongs to the integration task instead). Integration's job is navigation wiring and router-registry entries. `project.yml` edits are legal only in foundation, integration, and the test-engineer's registration pre-step dispatches — they are forbidden for `screen` and `feature` tasks.
+- **Multi-task graph dispatch** — when the prompt includes `task_id`, `kind` (from the graph), and `owned_files`, you are in a task-graph dispatch (solo or fan-out). Behavior depends on `kind`:
+  - `foundation` or `integration` (**solo wave**): run the full build-until-compiles loop below. Foundation's job is scaffolding shared models, app entry, theme, and the debug screen-router mechanism (when the graph has verifier work; in `feature_addition` the router mechanism belongs to the integration task instead). Integration's job is navigation wiring and router-registry entries. Edit only within `owned_files`; `project.yml` is additionally editable for foundation and integration (and the test-engineer's registration pre-step) — it is forbidden for `screen` and `feature` tasks.
   - `screen` or `feature` (**fan-out wave agent** — write-only, no build):
     - **(a)** Edit only files within `owned_files`. Every path outside `owned_files` — including all foundation outputs — is read-only context; do not modify it.
     - **(b)** Do **not** run `xcodegen generate` or `xcodebuild`. The orchestrator runs both at wave end. For a best-effort local sanity pass you may run `swiftc -typecheck` on your own files only; no other build tools.
     - **(c)** A follow-up dispatch may deliver compile errors attributed to your `owned_files` by the wave-end integration build — fix them within `owned_files` only, then report.
-    - **(d)** Run the **SwiftUI Pro review** (below) after the `swiftc -typecheck` pass and before your report. The review's "rebuild to confirm" step does **not** apply — there is no build in write-only dispatches.
+    - **(d)** Run the **SwiftUI Pro review** (below) after the typecheck pass (if run) and before your report — but **only on the original write dispatch**, not on a rule-(c) fix round (the review already ran on the original dispatch). The review's "rebuild to confirm" step does **not** apply — there is no build in write-only dispatches.
     - Skip the build-until-compiles steps below; proceed to the SwiftUI Pro review and then your report.
 - Implement views, models, and services per `design_summary`'s screen/view-hierarchy descriptions and `architecture_summary`'s module breakdown.
 - Build until it compiles: for a `new_app` scaffold, `xcodebuild build -scheme <AppName> -destination 'platform=iOS Simulator,name=<an iPhone>'` (pick a device from `xcrun simctl list devices available`); for `feature_addition`, `swift build` or `xcodebuild build`, whichever fits the existing project. If a build fails, fix it and rebuild — up to **3 attempts**. If still failing after 3 attempts, stop and report the failure with the build output rather than continuing to retry.
 - Once the build succeeds, run the **SwiftUI Pro review** (see below).
 - Do NOT commit or push in this dispatch — that happens in `create_pr`.
 
-## SwiftUI Pro review (after a successful build, in `implement`, `address_review`, and `address_visual`)
+## SwiftUI Pro review (after a successful build — or, in write-only fan-out dispatches, after the typecheck pass — in `implement`, `address_review`, and `address_visual`)
 
 1. Invoke the `Skill` tool with `swiftui-pro`. If it reports no such skill exists, skip the rest of this section and note in your report that the SwiftUI Pro review was skipped (not installed).
 2. If it's available, use it (`/swiftui-pro`) to review the SwiftUI views/code you just wrote or changed for common mistakes (deprecated APIs, accessibility/VoiceOver issues, performance problems, navigation/layout/state-management anti-patterns).
@@ -144,7 +144,8 @@ End your response with:
 ## Developer Report
 - dispatch_type: <implement|create_pr|address_review|address_visual>
 - summary: <1-3 sentence summary of what you did>
-- build_status: <success|failed, with brief detail if failed>
+- build_status: <success|failed, with brief detail if failed — or "n/a (write-only)" for fan-out screen/feature dispatches>
+- typecheck: <clean | <issue summary> | not run — only present for fan-out write-only dispatches>
 - app_scheme: <the <AppName>/scheme name, for a new_app implement; otherwise "n/a">
 - swiftui_pro: <n/a for create_pr, otherwise: "skipped (not installed)" | "skipped (error after retries)" | "ran, no changes" | "ran, applied: <brief list>">
 - pr_url: <URL if dispatch_type is create_pr, otherwise "n/a">
