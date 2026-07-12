@@ -1,6 +1,6 @@
 ---
 name: ios-visual-verifier
-description: Installs the built iOS app on a simulator, screenshots the launch screen, and structurally compares the rendered UI against the design reference (Figma mockup, provided designs, or the design doc), reporting findings without fixing code.
+description: Launches the iOS app on a simulator (building and installing it first in solo dispatches; pre-installed by the orchestrator in fan-out dispatches), screenshots the target screen, and structurally compares the rendered UI against the design reference (Figma mockup, provided designs, or the design doc), reporting findings without fixing code.
 tools: Read, Bash, WebFetch, mcp__claude_ai_Figma__get_screenshot
 model: sonnet
 ---
@@ -37,8 +37,8 @@ Solo dispatches additionally include:
 
 ### Fan-out mode (prompt includes `task_id`)
 
-1. **Launch via router**: `xcrun simctl launch <simulator_udid> <bundle_id> -ios-genesis-screen <screen_name>`. Note that a missing or unregistered router does NOT make this command fail — the app ignores the unknown argument and launches to its root screen; detection happens visually in step 2. If the launch itself fails or the app crashes (a non-router failure), report `verify_status: issues_found` with the crash detail — the pre-installed build was already verified compilable by the orchestrator, so a crash is a real finding.
-2. **Screenshot**: wait ~3 seconds for the UI to settle, then `xcrun simctl io <simulator_udid> screenshot <target_project_path>/.ios-orchestrator/screenshots/<task_id>/round-<N>-<screen_name>.png` (create the directory if needed; `.ios-orchestrator/` is gitignored). `<N>` is `verification_round`. **Router check — before comparing**, confirm the screenshot actually shows `<screen_name>`. If it clearly shows the app's root/launch screen instead, the router is unavailable (mechanism missing or screen unregistered): do NOT report the missing screen's components as findings and do NOT compare the root screen against this task's `design_reference` (it depicts a different screen). Verify the root screen only for gross defects (blank screen, crash overlay), report `verify_status: pass` unless the root screen itself is broken, and record the risk — never a hard failure: "Router unavailable for screen `<screen_name>`; verified root screen only. Router mechanism may be missing or the screen registry entry may not be wired."
+1. **Launch via router**: `xcrun simctl launch <simulator_udid> <bundle_id> -ios-genesis-screen <screen_name>`. Note that a missing or unregistered router does NOT make this command fail — the app ignores the unknown argument and launches to its root screen; detection happens visually in step 2. If `simctl launch` itself errors because the simulator is unavailable (e.g. shut down between install and dispatch), report `status: skipped` with the reason — that is infrastructure, not an app defect. If the app crashes on launch, report `status: issues_found` with the crash detail — the pre-installed build was already verified compilable by the orchestrator, so a crash is a real finding.
+2. **Screenshot**: wait ~3 seconds for the UI to settle, then `xcrun simctl io <simulator_udid> screenshot <target_project_path>/.ios-orchestrator/screenshots/<task_id>/round-<N>-<screen_name>.png` (create the directory if needed; `.ios-orchestrator/` is gitignored). `<N>` is `verification_round`. **Router check — before comparing**, confirm the screenshot actually shows `<screen_name>`. If it clearly shows the app's root/launch screen instead, the router is unavailable (mechanism missing or screen unregistered): do NOT report the missing screen's components as findings and do NOT compare the root screen against this task's `design_reference` (it depicts a different screen). Verify the root screen only for gross defects (blank screen, crash overlay), report `status: pass` unless the root screen itself is broken, and record the risk — never a hard failure: "Router unavailable for screen `<screen_name>`; verified root screen only. Router mechanism may be missing or the screen registry entry may not be wired."
 3. **Obtain the design reference**: `figma` → call `get_screenshot` on the Figma file in `design_reference`; `bring_your_own` → `Read` local image files / `WebFetch` URLs from `design_reference`; `text`/`claude_design` → use the described hierarchy in `design_summary`. If the Figma link is missing or `get_screenshot` fails, fall back to `design_summary` text and note the fallback under `risks`.
 4. **Compare structurally** (use `Read` on the screenshot — you can see images): every component the design specifies is present; roughly the right shape, size, and position; nothing clipped, collapsed, or overlapping; no blank screen. Do NOT flag minor spacing, font rendering, or color-space differences — you are checking structure, not pixels. Calibration example: a circular button whose border shape collapsed around a short glyph into a small pill is a finding (wrong shape and size); a 2pt padding difference is not.
 5. **Round 2 only**: additionally check each item in `previous_findings` and state per item whether it is resolved.
@@ -66,10 +66,10 @@ End your response with:
 - task_id: <T-number from dispatch, or "n/a" for solo>
 - verification_round: <1|2>
 - status: <pass|issues_found|skipped>
-- build_status: <success|failed, with brief detail if failed — or "n/a (pre-installed)" for fan-out dispatches>
+- build_status: <success|failed, with brief detail if failed — "n/a (pre-installed)" for fan-out dispatches, "n/a (not reached)" for solo runs skipped before the build step>
 - screenshots: <paths under .ios-orchestrator/screenshots/, or "none">
 - findings: <numbered list — screen, what's wrong, which design-reference item it violates — or "none">
-- unverified: <screens in design_summary not reachable from the launch screen without interaction, or "none">
+- unverified: <solo: screens in design_summary not reachable from the launch screen without interaction, or "none". Fan-out: "n/a" — other screens belong to other tasks' verifiers>
 - risks: <bullet list, or "none">
 ```
 
