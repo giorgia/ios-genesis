@@ -27,7 +27,7 @@ Skip this step for single-task graphs — the v0.2.0 checkpoint applies unchange
 Siblings always run to completion before this step fires. For each task with `status: "failed"` in the current phase, present the failure and ask the user to choose:
 
 - **Retry:** re-dispatch the task's agent with sibling summaries as additional context. Multiple retried tasks re-enter the wave scheduler and dispatch concurrently up to the cap. If remaining waves (e.g. the integration wave) have not yet run, the checkpoint will legitimately fire again once they complete — the one-gate invariant is per *pass*, not per calendar phase.
-- **Drop:** revert the task's `owned_files` to the last wip commit — `git checkout <last_commit_sha> -- <tracked paths>`, then delete any untracked files within those `owned_files` prefixes — so no non-compiling code from the dropped task survives into later integration builds. Then:
+- **Drop:** revert the task's `owned_files` to the last wip commit — `git checkout <last_commit_sha> -- <tracked paths>`, then delete any untracked files within those `owned_files` prefixes — so no non-compiling code from the dropped task survives into later integration builds. After applying the reverts, run one integration build (`xcodegen generate` + `xcodebuild build`); a failure here is an integration defect surfaced at the same checkpoint (the surviving code no longer compiles without the dropped files) — resolve it before proceeding, to preserve the invariant that wip commits are always buildable. Then:
   - Set `status: "dropped"` in `task_graph.tasks`.
   - Exclude the dropped task from all subsequent phase projections; dependents treat the dropped dependency as satisfied (the integration task simply omits wiring it).
   - Append an `open_risks` entry describing what was dropped and why.
@@ -42,7 +42,7 @@ The step 4 wip commit happens only once every failed task is resolved (retried t
 
 Create a `wip(<phase>): <one-liner>` commit — this is the **last state-mutating act** of the checkpoint. After committing, set `last_commit_sha` to `git rev-parse HEAD`. Note: for fanned-out phases, per-wave `wip(<phase>/wave-N)` commits made at each wave-end build are separate from this post-phase checkpoint commit.
 
-Skip this step when there is nothing to commit: `code_review` (address_review fixes are remote pushes already captured in step 1), `merge` (squash-merge commit captured in step 1), and clean `visual_verification` passes where no `address_visual` fix landed locally.
+Skip this step when `git status --porcelain` is empty — never attempt an empty commit. Typical cases where the working tree is clean at this point: `code_review` (address_review fixes are remote pushes already captured in step 1), `merge` (squash-merge commit captured in step 1), clean `visual_verification` passes where no `address_visual` fix landed locally, and survey-only architect phases in `feature_addition` mode that wrote no tracked files.
 
 ## 5. Present the summary to the user
 

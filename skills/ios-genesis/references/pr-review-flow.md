@@ -35,5 +35,5 @@ After the dispatch, run the `developer`/`pr_creation` scope check (see `role-bou
 
 Only reached if `code_review` resulted in `status: approved`. Run `gh pr merge <pr_url> --squash`.
 
-- **Success**: update `state.json` (`phase: "merge"`, `phase_status: "complete"`), run the standard checkpoint.
+- **Success**: after the merge completes, run `git checkout <default branch>` then `git pull` so the local checkout is on the merged history — post-merge phases (`release_manager`) commit to the default branch and must operate on up-to-date HEAD. Then update `state.json` (`phase: "merge"`, `phase_status: "complete"`) and run the standard checkpoint.
 - **Failure** (conflicts, pending/failed required checks, etc.): surface the `gh` error output to the user as-is - do not retry automatically. The user can resolve the underlying issue (e.g. fix required checks) and ask the orchestrator to retry the merge, which re-enters this step.
