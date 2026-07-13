@@ -60,7 +60,7 @@ One agent per projected task (`ui_impact: true`). Each agent **returns its desig
 ### test_engineer
 
 - **Registration pre-step (serial, once):** if test targets are missing, a single dispatch registers them in `project.yml` + `xcodegen generate` — the one sanctioned shared-file edit, with no siblings running.
-- **Write in parallel, build once, run in parallel:** wave agents write test files into per-task test directories without running them. When the wave reports: the orchestrator runs `xcodegen generate` + `xcodebuild build-for-testing` once, then each task's tests run concurrently via `xcodebuild test-without-building -only-testing:<task's test classes> -destination id=<own UDID>`.
+- **Write in parallel, build once, run in parallel:** wave agents write test files into per-task test directories without running them. When the wave reports: the orchestrator runs `xcodegen generate` + `xcodebuild build-for-testing` once, then each task's tests run concurrently via `xcodebuild test-without-building -only-testing:<TargetName/ClassName> -destination id=<own UDID>` — each `-only-testing:` entry comes from that write agent's reported `test_classes` list.
 - Test failures route back to the owning agents (with their failure output) for fix rounds, mirroring the developer wave-build loop (≤3 rounds, then `failed` → checkpoint). Fixes to test files re-enter `build-for-testing` serially.
 
 ## New app

@@ -29,7 +29,7 @@ Evaluate the incoming fields in this order — the first match applies:
 | **Registration pre-step** | `dispatch_type: register_targets` | Add missing test targets to `project.yml`; run `xcodegen generate`; no build, no tests; report |
 | **Fan-out write** | `task_id` + `owned_files` present; `failing_test_output` absent | Write test files into the task's owned test directory only; do not build or run; report |
 | **Fix round** | `task_id` + `failing_test_output` present | Fix failing tests within `owned_files` only; do not build or run; report |
-| **Solo** | None of the above (no `task_id`) | Full write → run → fix loop (see `dispatch_type: test` / `retest` below) |
+| **Solo** | None of the above | Full write → run → fix loop (see `dispatch_type: test` / `retest` below) |
 
 The `retest` dispatch shape is always solo — it runs the whole-suite re-verification and is not split into fan-out tasks.
 
@@ -40,20 +40,21 @@ The `retest` dispatch shape is always solo — it runs the whole-suite re-verifi
 Steps:
 1. Read `project.yml` at `target_project_path` to identify the app target name and any already-registered test targets.
 2. For each missing test target (unit-test, and UI-test if `design_summary` is present or the app has screens):
-   - Add a `bundle.unit-test` target depending on the app target, with `TEST_HOST: "$(BUILT_PRODUCTS_DIR)/<AppName>.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/<AppName>"` and `BUNDLE_LOADER: "$(TEST_HOST)"`. For a new app, also add a `bundle.ui-testing` target with at least a launch smoke test. Register both new targets under the scheme's `test` section.
+   - Add a `bundle.unit-test` target depending on the app target, with `TEST_HOST: "$(BUILT_PRODUCTS_DIR)/<AppName>.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/<AppName>"` and `BUNDLE_LOADER: "$(TEST_HOST)"`. When the UI-test condition above holds, also add a `bundle.ui-testing` target with at least a launch smoke test. Register each added target under the scheme's `test` section.
    - Create the corresponding source directory (e.g. `<AppName>Tests/` or `<AppName>UITests/`) with a placeholder `.swift` file (a minimal empty `XCTestCase` subclass; for the UI-test target, the launch smoke test is the placeholder) so `xcodegen generate` does not error on a missing sources path.
 3. Run `xcodegen generate` from `target_project_path`. If it fails, report the error — do not retry.
-4. Do not build or run tests. Report.
+4. Before reporting: re-read `project.yml` and verify that every target you claim to have registered is actually present there. Report only targets that exist in `project.yml` — do not claim registration of a target that is absent.
+5. Do not build or run tests. Report.
 
 ## Fan-out write dispatch (task_id + owned_files, no failing_test_output)
 
 You are one of several concurrent test-writing agents. Your `owned_files` declares the test directory for this task (e.g. `<AppName>Tests/Tasks/T2/`).
 
 Steps:
-1. Read the implementation code under `target_project_path` within the task's corresponding source `owned_files` (from the developer's report or the graph's developer task) to understand what was built for this task.
-2. Write or update unit tests (and UI tests where appropriate) covering the new/changed functionality for this task, placing all test files inside your declared `owned_files` directory. Follow the project's existing test conventions. Do not touch test files belonging to other tasks, and do not touch any app source files.
+1. Read the implementation code under `target_project_path` within the developer task's `owned_files` (provided in your dispatch prompt as the paired source paths for this task) to understand what was built for this task.
+2. Write or update tests covering the new/changed functionality for this task, placing all test files inside your declared `owned_files` directory. Let `kind` inform your test focus: `foundation` tasks get dedicated model/logic unit tests (one test class per model or service); `screen` tasks get UI-behavior tests for their screen (interaction and state); `feature` tasks test the feature's observable behavior end-to-end. Follow the project's existing test conventions. Do not touch test files belonging to other tasks, and do not touch any app source files.
 3. Do **not** run `xcodegen generate` or `xcodebuild` — the orchestrator runs `xcodegen generate` + `xcodebuild build-for-testing` once at wave end, then dispatches `test-without-building` per task.
-4. Report.
+4. Report, including `test_classes` (see below).
 
 ## Fix round dispatch (task_id + failing_test_output)
 
@@ -63,7 +64,7 @@ Steps:
 1. Read `failing_test_output` to understand the failures.
 2. Fix the failing tests within your `owned_files` only. Do not modify app source files; if a failure clearly points to a bug in app code, note it under `risks` (the orchestrator will route it to the Developer) — do not fix it yourself.
 3. Do **not** run `xcodegen generate` or `xcodebuild` — fixes to test files re-enter the orchestrator's `build-for-testing` step. The orchestrator controls re-runs.
-4. Report.
+4. Report, including an updated `test_classes` list reflecting any test classes added or removed during the fix round (see below).
 
 ## dispatch_type: test (solo only — no task_id)
 
@@ -78,7 +79,7 @@ Steps:
 
 - Review `reviewer_comments` and `developer_summary` to understand what changed.
 - Update existing tests if the Developer's fixes changed expected behavior (e.g. a renamed method, a changed return value).
-- **Pick a simulator** and target it explicitly: choose the newest available iPhone from `xcrun simctl list devices available`. Note the UDID and use it in every `simctl` and `xcodebuild` call (never `booted`). Boot if needed.
+- **Pick a simulator** and target it explicitly: choose the newest available iPhone from `xcrun simctl list devices available`. If none is available, stop and report `test_status: skipped — no simulator available`. Note the UDID and use it in every `simctl` and `xcodebuild` call (never `booted`). Boot if needed.
 - Re-run the test suite (same retry policy as solo `test`: up to 3 attempts, with the same escalation rule for apparent app bugs).
 
 ## Your final report to the orchestrator
@@ -90,6 +91,7 @@ End your response with:
 - dispatch_type: <register_targets|test|retest>
 - task_id: <T-number from dispatch, or "n/a" for solo/retest/register_targets>
 - summary: <1-3 sentence summary of what you did>
+- test_classes: <list of TargetName/ClassName entries for every XCTestCase class written or touched, e.g. AppTests/UserModelTests; "n/a" for registration-only or solo/retest>
 - build_status: <n/a (registration only) | n/a (write-only) | n/a (fix-round write-only) | success | failed, with brief detail if failed>
 - test_status: <n/a (registration only) | n/a (write-only — orchestrator runs test-without-building) | n/a (fix-round — orchestrator re-runs) | passing | failing, with brief detail if failing | skipped, with reason>
 - risks: <bullet list, or "none">
@@ -97,10 +99,10 @@ End your response with:
 
 **Report field guidance by shape:**
 
-- **Registration pre-step:** `build_status: n/a (registration only)`, `test_status: n/a (registration only)`.
-- **Fan-out write:** `build_status: n/a (write-only)`, `test_status: n/a (write-only — orchestrator runs test-without-building)`.
-- **Fix round:** `build_status: n/a (fix-round write-only)`, `test_status: n/a (fix-round — orchestrator re-runs)`.
-- **Solo / retest:** `build_status` reflects the actual `xcodebuild` result; `test_status` reflects the test run outcome.
+- **Registration pre-step:** `build_status: n/a (registration only)`, `test_status: n/a (registration only)`, `test_classes: n/a`.
+- **Fan-out write:** `build_status: n/a (write-only)`, `test_status: n/a (write-only — orchestrator runs test-without-building)`. `test_classes` must list every `TargetName/ClassName` for each XCTestCase class written — the orchestrator passes these entries directly to `xcodebuild test-without-building -only-testing:` when running this task's tests.
+- **Fix round:** `build_status: n/a (fix-round write-only)`, `test_status: n/a (fix-round — orchestrator re-runs)`. Update `test_classes` to reflect the current set of XCTestCase classes in your `owned_files` — the orchestrator uses this list for the next `test-without-building` run.
+- **Solo / retest:** `build_status` reflects the actual `xcodebuild` result; `test_status` reflects the test run outcome; `test_classes: n/a`.
 
 ## Role boundaries
 
