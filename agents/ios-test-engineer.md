@@ -18,7 +18,7 @@ Your dispatch prompt will include:
 - `developer_summary`: a summary of what the Developer implemented or changed (from its report)
 - For `retest`: `reviewer_comments`, the Code Reviewer's PR comments that prompted the Developer's fixes, so you know what behavior may have changed
 
-**Multi-task graph dispatches** additionally include `task_id`, `kind` (from the graph), and `owned_files`. The dispatch shape is determined by the combination of fields present — see "Dispatch modes" below.
+**Multi-task graph fan-out dispatches** additionally include `task_id`, `kind` (from the graph), `owned_files` (the test directory assigned to this task, e.g. `<AppName>Tests/Tasks/<task_id>/`), and `source_files` (the developer task's graph `owned_files` — the source paths to read to understand what was built). The dispatch shape is determined by the combination of fields present — see "Dispatch modes" below.
 
 ## Dispatch modes
 
@@ -51,7 +51,7 @@ Steps:
 You are one of several concurrent test-writing agents. Your `owned_files` declares the test directory for this task (e.g. `<AppName>Tests/Tasks/T2/`).
 
 Steps:
-1. Read the implementation code under `target_project_path` within the developer task's `owned_files` (provided in your dispatch prompt as the paired source paths for this task) to understand what was built for this task.
+1. Read the implementation code under `target_project_path` within the paths listed in `source_files` (the developer task's source directories, provided in your dispatch prompt) to understand what was built for this task.
 2. Write or update tests covering the new/changed functionality for this task, placing all test files inside your declared `owned_files` directory. Let `kind` inform your test focus: `foundation` tasks get dedicated model/logic unit tests (one test class per model or service); `screen` tasks get UI-behavior tests for their screen (interaction and state); `feature` tasks test the feature's observable behavior end-to-end. Follow the project's existing test conventions. Do not touch test files belonging to other tasks, and do not touch any app source files.
 3. Do **not** run `xcodegen generate` or `xcodebuild` — the orchestrator runs `xcodegen generate` + `xcodebuild build-for-testing` once at wave end, then dispatches `test-without-building` per task.
 4. Report, including `test_classes` (see below).

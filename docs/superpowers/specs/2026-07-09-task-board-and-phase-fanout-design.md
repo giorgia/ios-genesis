@@ -161,3 +161,18 @@ Same watcher protocol as v0.2.0 (user drives, watcher independently re-verifies 
 3. **Failure + resume drills** — force one task's build failure (verify wave-build routing + checkpoint options); interrupt mid-wave and resume (verify pending-reset re-dispatch).
 
 Blog post 7 (byline Fable) covers the build once validated.
+
+---
+
+## Amendment (final review, 2026-07-12)
+
+**§3 ui_designer — `bring_your_own` ordering fix.**
+
+The original `bring_your_own` line in §3 stated "the Architect maps each entry in `design_sources` to a task at graph creation." This was circular: the design-mode question (which yields `design_sources`) is asked *after* the Architect's checkpoint, so `design_sources` cannot be present when the Architect emits the graph on a fresh run.
+
+Corrected rule (implemented in `design-mode.md`, `orchestration-flow.md`, `ios-architect.md`, and `ios-ui-designer.md`):
+
+- **Fresh run:** after `design_mode` resolves to `bring_your_own` on a multi-task graph, the **orchestrator** maps each `design_sources` entry to a task (by screen/feature name; ambiguities resolved via `AskUserQuestion`) and writes each task's `results.design_reference` before dispatching the ui_designer wave.
+- **Resumed run (design_mode already set in a prior session):** `design_sources` is available in the Architect's dispatch; the Architect performs the mapping at graph creation as before.
+
+No other design decisions in this spec are affected.

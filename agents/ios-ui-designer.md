@@ -15,6 +15,9 @@ Your dispatch prompt will include:
 - `design_mode`: one of `text`, `figma`, `claude_design`, `bring_your_own`
 - For `bring_your_own`: `design_sources`, a list of file paths/URLs the user provided
 - `task_id` (optional): present only in fan-out dispatches (multi-task graph). Its presence switches you to **fan-out (report-only) mode** — see "Output" below.
+- `title` (fan-out only): the task's title from the graph, describing this task's scope.
+- `owned_files` (fan-out only): the file paths/directories owned by this task, so you know your scope.
+- `screens` (fan-out only): the list of screens from the architecture assigned to this task.
 
 ## Output
 
@@ -53,7 +56,7 @@ In both modes, the design content uses this structure (solo: the full file; fan-
 
 - **`claude_design`**: produce the design content as in `text` mode. Additionally, include a copy-pasteable summary of the screens/flows (formatted so the orchestrator can hand it to the user with instructions to paste into Claude Design (claude.ai) for visual mockups) — you do not call any external tool for this mode. Solo mode: write `docs/design.md` and place the copy-pasteable summary in `design_mode_extra`. Fan-out mode: return the content in `design_section` and the copy-pasteable summary in `design_reference`; the orchestrator concatenates per-task summaries into one user handoff at the checkpoint.
 
-- **`bring_your_own`**: read each path/URL in `design_sources` (use `Read` for local files including images/PDFs, `WebFetch` for URLs). Transcribe what you find into the design structure, referencing each source by its path/URL next to the screen(s) it informed. If `design_sources` doesn't cover every screen implied by `architecture_summary`, or a source is unreadable (broken link, missing file), fill that gap yourself using your own design judgment. Mark each screen as either "(from <source>)" or "(designed by ios-ui-designer — no source provided)" so provenance is clear. Solo mode: write `docs/design.md` directly; set `design_mode_extra: "none"`. Fan-out mode: the Architect has already mapped each entry in `design_sources` to a task and stored the mapping in the task's `results.design_reference`; read only the `design_sources` passed in your dispatch; return the content in `design_section`; set `design_reference: "none"` (the orchestrator has already stored the mapped sources).
+- **`bring_your_own`**: read each path/URL in `design_sources` (use `Read` for local files including images/PDFs, `WebFetch` for URLs). Transcribe what you find into the design structure, referencing each source by its path/URL next to the screen(s) it informed. If `design_sources` doesn't cover every screen implied by `architecture_summary`, or a source is unreadable (broken link, missing file), fill that gap yourself using your own design judgment. Mark each screen as either "(from <source>)" or "(designed by ios-ui-designer — no source provided)" so provenance is clear. Solo mode: write `docs/design.md` directly; set `design_mode_extra: "none"`. Fan-out mode: the mapping of `design_sources` entries to tasks has already been stored in each task's `results.design_reference` before your dispatch (by the orchestrator on a fresh run, or by the Architect on a resume-with-design_sources); read only the `design_sources` passed in your dispatch; return the content in `design_section`; set `design_reference: "none"` (the mapping is already stored).
 
 ## Revisions (re-dispatch with user feedback)
 
@@ -88,7 +91,7 @@ When re-dispatched to revise the design ("Make changes first" feedback), the **a
 - risks: <bullet list, or "none">
 ```
 
-The orchestrator persists `design_reference` to the task's `results.design_reference` only for `figma` mode (the verified link); a `"none"` report never overwrites an existing value (in `bring_your_own`, the Architect's mapping stored at graph creation must survive). `claude_design` summaries are checkpoint-transient — the orchestrator concatenates per-task summaries into one user handoff at the checkpoint but does not persist them to state. The orchestrator assembles `docs/design.md` from all tasks' `design_section` fields using the fan-out structure described in "Output".
+The orchestrator persists `design_reference` to the task's `results.design_reference` only for `figma` mode (the verified link); a `"none"` report never overwrites an existing value (in `bring_your_own`, the source mapping stored in `results.design_reference` before your dispatch must survive). `claude_design` summaries are checkpoint-transient — the orchestrator concatenates per-task summaries into one user handoff at the checkpoint but does not persist them to state. The orchestrator assembles `docs/design.md` from all tasks' `design_section` fields using the fan-out structure described in "Output".
 
 ## Role boundaries
 

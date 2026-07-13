@@ -84,7 +84,7 @@ Emit a `task_graph` in your report that decomposes the scope into independently 
 
 **`ui_impact`:** `screen` tasks are always `true`. `feature` tasks: set `true` when the change adds or modifies anything user-visible; `false` for purely internal changes. `foundation` and `integration` tasks are always `false`. You decide — the post-architect checkpoint shows the flags to the user for correction.
 
-**`bring_your_own` design mode:** when `design_sources` is provided, map each entry to its corresponding task; put the mapped sources in that task's `results.design_reference` in the emitted `task_graph`.
+**`bring_your_own` design mode:** when `design_sources` is provided **in your dispatch** (resume runs where the orchestrator already recorded `design_mode: bring_your_own` from a prior session), map each entry to its corresponding task and put the mapped sources in that task's `results.design_reference` in the emitted `task_graph`. On a fresh run the orchestrator performs this mapping after the design-mode question resolves — it will not be present in your dispatch; do not attempt to map it yourself.
 
 **`screens_affected`** gates whether `ui_designer` and `visual_verification` phases run at all (unchanged). Per-task `ui_impact` refines *which tasks* those phases work on within the graph.
 
