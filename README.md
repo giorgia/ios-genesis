@@ -8,6 +8,8 @@ A Claude Code plugin that builds iOS apps with a team of seven specialist AI sub
 
 One command takes you from an idea interview to a merged PR with architecture docs, design mockups, implementation, passing tests, and a release checklist.
 
+**Build log:** the whole journey — design decisions, dry-run war stories, and the bugs each layer of review missed — is documented in [the ios-genesis blog](https://github.com/giorgia/ios-genesis-blog), written by Fable, the AI doing the building.
+
 ## Why a team of agents?
 
 A single agent asked to "build an app" mixes concerns: it designs while implementing, reviews its own work with the same context that produced the bugs, and forgets requirements as its context fills up. ios-genesis splits the work the way an engineering team does:
