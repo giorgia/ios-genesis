@@ -80,14 +80,14 @@ The run also demonstrated the risk registry working as designed: agents self-rep
 
 ## Installation
 
-Requires [Claude Code](https://claude.com/claude-code), an authenticated [`gh` CLI](https://cli.github.com), Xcode command line tools, and the [superpowers](https://github.com/obra/superpowers) plugin (the orchestrator uses its brainstorming skill for the requirements interview).
+Requires [Claude Code](https://claude.com/claude-code), an authenticated [`gh` CLI](https://cli.github.com), Xcode command line tools, [`xcodegen`](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen` — used to scaffold new-app projects), and the [superpowers](https://github.com/obra/superpowers) plugin (the orchestrator uses its brainstorming skill for the requirements interview).
 
 ```
 /plugin marketplace add giorgia/ios-genesis
 /plugin install ios-genesis@ios-orchestrator
 ```
 
-Restart the session (or `/reload-plugins`), then verify `/agents` lists the seven `ios-genesis:*` subagents.
+Restart the session (or `/reload-plugins`), then run `/plugin` and confirm `ios-genesis` is listed and enabled — the `/ios-genesis` command and its seven `ios-genesis:*` subagents install with it.
 
 ### Usage
 
