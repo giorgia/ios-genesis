@@ -71,36 +71,45 @@ Implement the app/feature per `architecture_summary` and `design_summary`:
           config: Release
     ```
   - `<AppName>/`: the app sources (`@main` entry point plus views/models per `design_summary`/`architecture_summary`), an explicit `Info.plist`, an `Assets.xcassets` containing an `AppIcon` placeholder set, and a minimal valid `PrivacyInfo.xcprivacy`.
-  - `.gitignore` at the project root ignoring `.ios-orchestrator/`, `*.xcuserdata*`, `.DS_Store`, and build products (`build/`, `DerivedData/`) — so `create_pr`'s `git init` + initial commit never captures orchestrator state or screenshots.
+  - `.gitignore`: extend the `.gitignore` created at state initialization (which already ignores `.ios-orchestrator/`) with `*.xcuserdata*`, `.DS_Store`, and build products (`build/`, `DerivedData/`).
   - Run `xcodegen generate` after writing or changing `project.yml`, and keep both `project.yml` and the generated `.xcodeproj` (committed later at `create_pr`) so the repo is usable without xcodegen installed. If `xcodegen generate` fails, treat it as a build failure (it counts against the build attempts below).
   - Note the placeholder `com.example.<AppName>` bundle identifier under `risks` in your report — the user must replace it before any App Store work.
 - **`feature_addition`**: modify the existing project at `target_project_path` to add/change the functionality described in `architecture_summary`/`design_summary`, following the existing project's structure and conventions.
+- **Multi-task graph dispatch** — when the prompt includes `task_id`, `kind` (from the graph), and `owned_files`, you are in a task-graph dispatch (solo or fan-out). Behavior depends on `kind`:
+  - `foundation` or `integration` (**solo wave**): run the full build-until-compiles loop below. Foundation's job is scaffolding shared models, app entry, theme, and the debug screen-router mechanism (when the graph has verifier work; in `feature_addition` the router mechanism belongs to the integration task instead). Integration's job is navigation wiring and router-registry entries; register each screen under its `docs/design.md` screen name (the canonical display name — verifiers launch screens by these names). Edit only within `owned_files`; `project.yml` is additionally editable for foundation and integration (and the test-engineer's registration pre-step) — it is forbidden for `screen` and `feature` tasks.
+  - `screen` or `feature` (**fan-out wave agent** — write-only, no build):
+    - **(a)** Edit only files within `owned_files`. Every path outside `owned_files` — including all foundation outputs — is read-only context; do not modify it.
+    - **(b)** Do **not** run `xcodegen generate` or `xcodebuild`. The orchestrator runs both at wave end. For a best-effort local sanity pass you may run `swiftc -typecheck` on your own files only; no other build tools.
+    - **(c)** A follow-up dispatch may deliver compile errors attributed to your `owned_files` by the wave-end integration build — fix them within `owned_files` only, then report.
+    - **(d)** Run the **SwiftUI Pro review** (below) after the typecheck pass (if run) and before your report — but **only on the original write dispatch**, not on a rule-(c) fix round (the review already ran on the original dispatch). The review's "rebuild to confirm" step does **not** apply — there is no build in write-only dispatches.
+    - Skip the build-until-compiles steps below; proceed to the SwiftUI Pro review and then your report.
 - Implement views, models, and services per `design_summary`'s screen/view-hierarchy descriptions and `architecture_summary`'s module breakdown.
 - Build until it compiles: for a `new_app` scaffold, `xcodebuild build -scheme <AppName> -destination 'platform=iOS Simulator,name=<an iPhone>'` (pick a device from `xcrun simctl list devices available`); for `feature_addition`, `swift build` or `xcodebuild build`, whichever fits the existing project. If a build fails, fix it and rebuild — up to **3 attempts**. If still failing after 3 attempts, stop and report the failure with the build output rather than continuing to retry.
 - Once the build succeeds, run the **SwiftUI Pro review** (see below).
 - Do NOT commit or push in this dispatch — that happens in `create_pr`.
 
-## SwiftUI Pro review (after a successful build, in `implement`, `address_review`, and `address_visual`)
+## SwiftUI Pro review (after a successful build — or, in write-only fan-out dispatches, after the typecheck pass — in `implement`, `address_review`, and `address_visual`)
 
 1. Invoke the `Skill` tool with `swiftui-pro`. If it reports no such skill exists, skip the rest of this section and note in your report that the SwiftUI Pro review was skipped (not installed).
 2. If it's available, use it (`/swiftui-pro`) to review the SwiftUI views/code you just wrote or changed for common mistakes (deprecated APIs, accessibility/VoiceOver issues, performance problems, navigation/layout/state-management anti-patterns).
 3. Apply fixes for clear correctness, deprecation, and accessibility issues. Use your judgment on purely stylistic suggestions.
-4. If you made changes, rebuild (`swift build`/`xcodebuild build`) to confirm the project still compiles — same retry policy as above (up to 3 attempts; if it still fails, stop and report the failure).
+4. If you made changes, rebuild (`swift build`/`xcodebuild build`) to confirm the project still compiles — same retry policy as above (up to 3 attempts; if it still fails, stop and report the failure). **Fan-out wave agents (rule (d) above): skip this step — there is no build in write-only dispatches.**
 5. If the `swiftui-pro` invocation itself errors, treat it like a build failure: retry up to 3 attempts total, then proceed without the review and note this in your report.
 6. Note in your report what was applied (or why the pass was skipped).
 
 ## dispatch_type: create_pr
 
 Additional input fields:
-- `branch_name`: the feature branch name to use (computed by the orchestrator — `feature/initial-implementation` for new apps, `feature/<slug>` for feature additions)
+- `branch_name`: the working branch already checked out since state initialization (`feature/initial-implementation` for new apps, `feature/<slug>` for feature additions)
 - `pr_description_context`: a short summary of the architecture/design/implementation to include in the PR description
 
 Steps:
-1. Create and check out `branch_name` from the project's default branch. **`new_app` exception**: if `target_project_path` is not yet a git repository (no `.git` directory — expected for a brand-new project, since `implement` doesn't create one), run `git init` first and create an initial commit of the scaffolded project produced by `implement` before creating `branch_name`. This establishes the default branch that `branch_name` is created from.
-2. Stage and commit all implementation changes with a descriptive commit message. (For `new_app`, if step 1's initial commit already captured everything and there's nothing left to commit, skip this step.)
-3. Push the branch to the remote (`git push -u origin <branch_name>`). Assume the remote already exists and is configured — the orchestrator handles `gh repo create` separately if needed.
-4. Open a PR via `gh pr create`, with a title summarizing the change and a body built from `pr_description_context` (reference `docs/architecture.md` and `docs/design.md` if they exist).
-5. Report the PR URL back to the orchestrator.
+1. Stage and commit any remaining uncommitted implementation changes with a descriptive commit message. If there is nothing to commit (all changes were captured by the orchestrator's wip commits), skip this step.
+2. Push the branch to the remote (`git push -u origin <branch_name>`). Assume the remote already exists and is configured — the orchestrator handles `gh repo create` separately if needed.
+3. Open a PR via `gh pr create`, with a title summarizing the change and a body built from `pr_description_context` (reference `docs/architecture.md` and `docs/design.md` if they exist).
+4. Report the PR URL back to the orchestrator.
+
+**Legacy path (pre-0.3.0 state files only):** if `state.json` has no `task_graph` key, this dispatch retains its v0.2.0 git responsibilities — the working branch does not yet exist from state initialization. Steps: (1) For `new_app`: if `target_project_path` has no `.git` directory, run `git init` and create an initial commit of the scaffolded project from `implement`, establishing the default branch. Then create and check out `branch_name` from the default branch (all modes). (2) Stage and commit all implementation changes (for `new_app`, if the initial commit from step 1 already captured everything, skip this). (3)–(4) continue as above (push and open PR). Exception: a `state.json` with no `task_graph` but `last_commit_sha` set while `phase` is `architect` is a v0.3.0 pre-graph resume — the working branch already exists; do not use this legacy path.
 
 ## dispatch_type: address_review
 
@@ -135,7 +144,8 @@ End your response with:
 ## Developer Report
 - dispatch_type: <implement|create_pr|address_review|address_visual>
 - summary: <1-3 sentence summary of what you did>
-- build_status: <success|failed, with brief detail if failed>
+- build_status: <success|failed, with brief detail if failed — or "n/a (write-only)" for fan-out screen/feature dispatches>
+- typecheck: <clean | <issue summary> | not run — only present for fan-out write-only dispatches>
 - app_scheme: <the <AppName>/scheme name, for a new_app implement; otherwise "n/a">
 - swiftui_pro: <n/a for create_pr, otherwise: "skipped (not installed)" | "skipped (error after retries)" | "ran, no changes" | "ran, applied: <brief list>">
 - pr_url: <URL if dispatch_type is create_pr, otherwise "n/a">

@@ -30,6 +30,18 @@ If the user doesn't express a preference, default to `design_mode: "text"`.
 
 Pass `design_mode` (and `design_sources` if `bring_your_own`) to the UI Designer in its dispatch prompt - see `agents/ios-ui-designer.md` for how each mode affects its output.
 
+## Fan-out in multi-task graphs
+
+In multi-task graphs, the design mode applies per task. The ui_designer phase dispatches one agent per projected task (`ui_impact: true`); each agent returns its design section, which the orchestrator assembles into `docs/design.md`. Per design mode:
+
+- `figma`: each task's mockup is its own Figma file; the link is stored in that task's `results.design_reference` (superseding the single `design_mode_extra` link flow, which remains in effect for single-task graphs).
+- `claude_design`: per-task paste summaries, concatenated by the orchestrator into one user handoff at the checkpoint.
+- `bring_your_own`: after `design_mode` resolves to `bring_your_own` on a multi-task graph, the **orchestrator** maps each entry in `design_sources` to a task (matching by screen/feature name; on ambiguity, ask the user via `AskUserQuestion`) and writes each task's `results.design_reference` before dispatching the ui_designer wave. The Architect performs this mapping only when `design_sources` is already present in its dispatch (resumed runs where `design_mode` was set in a previous session).
+
+Each verifier receives its task's `design_reference` (or `"none"` for modes that don't populate one).
+
+Only `figma` links and `bring_your_own` source mappings (written to `results.design_reference` by the orchestrator before the ui_designer wave, or by the Architect on resume-with-design_sources) are persisted to `results.design_reference`; a designer report of `"none"` never overwrites an existing value. `claude_design` summaries are checkpoint-transient — concatenated into the user handoff at the checkpoint — and are not persisted to state.
+
 ## At the UI Designer's checkpoint
 
 - **text / bring_your_own**: standard checkpoint (summary + Risks/Blockers + Continue/Make changes/Stop). For `bring_your_own`, the summary additionally notes which screens came from `design_sources` vs. were filled in by the UI Designer, per the per-screen provenance annotations in `docs/design.md` (`design_mode_extra` will be `"none"` for this mode).

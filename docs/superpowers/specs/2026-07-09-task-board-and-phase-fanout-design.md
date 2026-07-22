@@ -75,7 +75,7 @@ New `state.json` field, fully documented in `state-schema.md` for both modes (th
 - `ui_impact` (boolean): drives per-phase participation (§3). `screen` tasks are always `true`; `feature` tasks set it when they change anything user-visible (the Architect decides; the post-architect checkpoint shows the flags so the user can correct them — this keeps a visual fix like TipTop's clipped chip inside the visual-verification guarantee).
 - `owned_files`: exclusive set of **literal directory prefixes** (or single file paths). Disjointness rule, cheap and decidable: no owned path may be a path-prefix of another task's owned path.
 - `status`: `pending` | `in_progress` | `complete` | `failed` | `dropped`. `results` accumulates per-phase outcomes (`design_status`, `build_status`, `verify_status` + `verification_round`, `tests_status`, per-task `design_reference` for figma mode) as the task flows through phases.
-- **Small scopes:** a single-task graph (one `feature` task, no foundation/integration). Execution degenerates to the v0.2.0 sequential flow, and the v0.2.0 top-level fields (`verification_round`, etc.) keep their existing meaning. **Multi-task graphs** move round counters into each task's `results`; `state-schema.md` documents both forms side by side. **Back-compat:** a `state.json` with no `task_graph` (any pre-0.3.0 run) resumes with the sequential flow unchanged.
+- **Small scopes:** a single-task graph (one `feature` task, no foundation/integration). Execution degenerates to the v0.2.0 sequential flow, and the v0.2.0 top-level fields (`verification_round`, etc.) keep their existing meaning. **Multi-task graphs** move round counters into each task's `results`; `state-schema.md` documents both forms side by side. **Back-compat:** a `state.json` with no `task_graph` (any pre-0.3.0 run) resumes with the sequential flow unchanged. Discriminator for the pre-graph window: `task_graph` exists only once the orchestrator accepts the Architect's graph, so a resume with no `task_graph` but `last_commit_sha` set while `phase` is `architect` is a **v0.3.0 pre-graph resume** — its git model is already initialized (working branch exists); do not route it to the legacy `pr_creation` init path.
 
 ### Git model (change to the v0.2.0 flow)
 
@@ -161,3 +161,18 @@ Same watcher protocol as v0.2.0 (user drives, watcher independently re-verifies 
 3. **Failure + resume drills** — force one task's build failure (verify wave-build routing + checkpoint options); interrupt mid-wave and resume (verify pending-reset re-dispatch).
 
 Blog post 7 (byline Fable) covers the build once validated.
+
+---
+
+## Amendment (final review, 2026-07-12)
+
+**§3 ui_designer — `bring_your_own` ordering fix.**
+
+The original `bring_your_own` line in §3 stated "the Architect maps each entry in `design_sources` to a task at graph creation." This was circular: the design-mode question (which yields `design_sources`) is asked *after* the Architect's checkpoint, so `design_sources` cannot be present when the Architect emits the graph on a fresh run.
+
+Corrected rule (implemented in `design-mode.md`, `orchestration-flow.md`, `ios-architect.md`, and `ios-ui-designer.md`):
+
+- **Fresh run:** after `design_mode` resolves to `bring_your_own` on a multi-task graph, the **orchestrator** maps each `design_sources` entry to a task (by screen/feature name; ambiguities resolved via `AskUserQuestion`) and writes each task's `results.design_reference` before dispatching the ui_designer wave.
+- **Resumed run (design_mode already set in a prior session):** `design_sources` is available in the Architect's dispatch; the Architect performs the mapping at graph creation as before.
+
+No other design decisions in this spec are affected.

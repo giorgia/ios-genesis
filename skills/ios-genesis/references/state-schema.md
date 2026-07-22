@@ -1,6 +1,6 @@
 # State File Schema
 
-`<target-project-path>/.ios-orchestrator/state.json` is written and updated by the orchestrator (not subagents) after each phase completes. It enables resuming a run later and tracks cumulative risks/blockers.
+`<target-project-path>/.ios-orchestrator/state.json` is written by the orchestrator at initialization, at wave ends, and at phase checkpoints. It enables resuming a run later and tracks cumulative risks/blockers.
 
 ## Schema
 
@@ -8,15 +8,47 @@
 {
   "mode": "new_app",
   "interview_output": "Build a single-screen counter app...",
-  "phase": "code_review",
+  "phase": "visual_verification",
   "phase_status": "in_progress",
-  "review_round": 1,
-  "verification_round": 1,
+  "review_round": 0,
   "screens_affected": true,
-  "design_mode": "text",
+  "design_mode": "figma",
   "design_sources": [],
+  "app_scheme": "TipTop",
+  "task_graph": {
+    "cap": 3,
+    "tasks": [
+      {
+        "id": "T1",
+        "title": "Foundation: shared models, app entry, theme",
+        "kind": "foundation",
+        "owned_files": ["App/Models/", "App/TipTopApp.swift", "App/Theme/"],
+        "depends_on": [],
+        "ui_impact": false,
+        "status": "complete",
+        "results": {
+          "build_status": "success"
+        }
+      },
+      {
+        "id": "T2",
+        "title": "Home screen",
+        "kind": "screen",
+        "owned_files": ["App/Views/Home/"],
+        "depends_on": ["T1"],
+        "ui_impact": true,
+        "status": "in_progress",
+        "results": {
+          "design_status": "complete",
+          "design_reference": "https://figma.com/file/abc",
+          "build_status": "success",
+          "verify_status": "pending",
+          "verification_round": 0
+        }
+      }
+    ]
+  },
   "last_commit_sha": "a1b2c3d4...",
-  "pr_url": "https://github.com/user/repo/pull/1",
   "open_risks": [
     {
       "id": "risk-1",
@@ -31,6 +63,18 @@
       "completed_at": "2026-06-11T10:00:00Z",
       "summary": "3 modules: Networking, Persistence, UI. Single-target SwiftUI app.",
       "artifact": "docs/architecture.md"
+    },
+    {
+      "phase": "ui_designer",
+      "completed_at": "2026-06-11T11:00:00Z",
+      "summary": "1 screen designed: Home. Figma file linked, all tokens exported.",
+      "artifact": "docs/design.md"
+    },
+    {
+      "phase": "developer",
+      "completed_at": "2026-06-11T13:30:00Z",
+      "summary": "T1 (foundation) and T2 (Home screen) implemented. Build passing on both tasks.",
+      "artifact": "sources+project.yml"
     }
   ]
 }
@@ -49,7 +93,20 @@
 - `design_mode`: `"text"`, `"figma"`, `"claude_design"`, or `"bring_your_own"`. Only meaningful when `screens_affected: true`; otherwise unset (key omitted).
 - `design_sources`: list of file paths/URLs to user-provided designs. Only populated when `design_mode` is `"bring_your_own"`; empty otherwise.
 - `app_scheme`: the Xcode scheme used to build/launch the app. For `new_app`: set from the Developer's `implement` report (it matches `project.yml`'s `name:`, which remains the authoritative source on resume). For `feature_addition`: unset (key omitted) — the Visual Verifier is dispatched with `"discover"` and resolves the scheme itself via `xcodebuild -list`.
-- `last_commit_sha`: HEAD of the project's git repository (whichever branch is currently checked out) as of the last orchestrator update - the default branch before `pr_creation`, the feature branch during `pr_creation`/`code_review`, and the default branch again after `merge`. Updated after the `pr_creation`, `code_review`, and `merge` phases (see `role-boundaries.md`/`checkpoints.md` for details). Unset (key omitted) for `new_app` before `pr_creation`'s `git init` creates the repo.
+- `task_graph`: present for v0.3.0 runs; omitted in pre-0.3.0 state files (which resume with the legacy sequential flow including the legacy git model). Object with:
+  - `cap`: int (default `3`). Maximum concurrent tasks dispatched per wave.
+  - `tasks`: ordered list of task objects. Each task has:
+    - `id`: string (`"T1"`, `"T2"`, …).
+    - `title`: human-readable task description.
+    - `kind`: `foundation` | `screen` | `feature` | `integration`. Cardinality: 0 or 1 `foundation`, 0 or 1 `integration`.
+    - `owned_files`: exclusive set of literal directory prefixes or single file paths. Disjointness rule: no owned path may be a path-prefix of another task's owned path.
+    - `depends_on`: list of task `id`s. Must form a DAG (a cycle would deadlock the wave scheduler).
+    - `ui_impact`: boolean. `screen` tasks are always `true`; drives phase participation (ui_designer, visual_verification).
+    - `status`: `pending` | `in_progress` | `complete` | `failed` | `dropped`.
+    - `results`: object accumulating per-phase outcomes as the task progresses. Fields and value sets: `design_status`: `pending|complete` (set by the orchestrator when the task's designer report arrives); `design_reference`: URL or file path — a list when `bring_your_own` maps several sources to one task (for `figma`, set alongside `design_status`; for `bring_your_own`, set at mapping time); `build_status`: `pending|success|failed` (set by the orchestrator from the wave-end integration build, or the agent's own build for solo waves); `verify_status`: `pass|issues_found|skipped`; `verification_round`: `1|2`; `tests_status`: `pass|failed|skipped` (set by the orchestrator from its `test-without-building` run in fan-out, or the agent's report in solo waves).
+  - Written by the orchestrator only, after validating the Architect-reported graph (disjointness + DAG). On validation failure: re-dispatch the Architect with the defect named (max 2 retries), then surface at the checkpoint.
+  - **Single-task graphs**: execution degenerates to the v0.2.0 sequential flow; top-level `verification_round`/`review_round` keep their existing meaning. **Multi-task graphs**: `verification_round` lives in each task's `results`; `review_round` remains top-level in all modes (code_review is whole-run). **Pre-0.3.0 state files** (no `task_graph` key): resume with the legacy sequential flow unchanged, including the legacy git model. A resume with no `task_graph` but `last_commit_sha` set while `phase` is `architect` is a v0.3.0 pre-graph resume — git model already initialized (working branch exists); do NOT route it to the legacy pr_creation init path.
+- `last_commit_sha`: HEAD of the working branch as of the last orchestrator commit. Updated at every orchestrator commit — each `wip(<phase>)` checkpoint commit and each `wip(<phase>/wave-N)` wave-build commit. Set at git initialization (on the working branch after the initial commit) and kept current throughout the run. All run commits land on the working branch until `merge`; post-merge phases (`release_manager`) commit to the default branch, and `last_commit_sha` tracks those too. Pre-0.3.0 state files may have this unset for `new_app` runs that had not yet reached `pr_creation`; the legacy resume path handles that case (see Resuming, below).
 - `pr_url`: set once `pr_creation` completes; used by `code_review` and `merge`. Unset (key omitted) before then.
 - `open_risks`: list of risks/blockers raised by subagents that haven't been resolved or dismissed. Each entry has:
   - `id`: stable identifier (`risk-1`, `risk-2`, ... incrementing across the whole run)
@@ -63,13 +120,15 @@ Throughout this schema, "unset" means the key is omitted from the JSON entirely 
 
 ## Initialization
 
-For a brand-new run (`mode: new_app`, or `feature_addition` against a project with no existing state file), the orchestrator creates `.ios-orchestrator/state.json` with: `mode` set appropriately, `interview_output` set from Step 0's interview result, `phase: "architect"`, `phase_status: "in_progress"`, `review_round: 0`, `verification_round: 0`, `screens_affected: null` (unknown until the Architect reports), `design_mode` unset, `design_sources: []`, `last_commit_sha` unset for `new_app` (no repo yet — created during `pr_creation`), or set to the current `git rev-parse HEAD` of the target project for `feature_addition`, `pr_url` unset, `open_risks: []`, `phases_completed: []`.
+For a brand-new run (`mode: new_app`, or `feature_addition` against a project with no existing state file), the orchestrator creates `.ios-orchestrator/state.json` with: `mode` set appropriately, `interview_output` set from Step 0's interview result, `phase: "architect"`, `phase_status: "in_progress"`, `review_round: 0`, `verification_round: 0`, `screens_affected: null` (unknown until the Architect reports), `design_mode` unset, `design_sources: []`, `last_commit_sha` set to the HEAD of the working branch after git initialization (see below), `pr_url` unset, `open_risks: []`, `phases_completed: []`.
 
-For `feature_addition` (existing git repo): if `.ios-orchestrator/` is not already git-ignored in the target repo (`git check-ignore .ios-orchestrator`), append it to the repo's `.gitignore` (creating the file if needed) as part of initialization. This keeps orchestrator state and screenshots out of the user's repo; for `new_app`, the Developer's scaffold `.gitignore` covers it. This orchestrator-made `.gitignore` change is bookkeeping — exempt from every phase's scope check, like `state.json` (see `role-boundaries.md`).
+**Git initialization (post-interview, both modes):** `git init` if no repo exists — applies to both `new_app` and `feature_addition` (a feature can be added to a project that was never put in source control). First act in both modes: ensure `.gitignore` contains `.ios-orchestrator/` — create the file if it does not exist; otherwise append if not already ignored (`git check-ignore .ios-orchestrator`). This replaces the feature_addition-only carve-out from v0.2.0 and keeps orchestrator state and screenshots out of the repo in all modes. If the repo is empty (after `git init` in either mode), make an initial commit on the default branch. Then create and switch to the working branch: `feature/initial-implementation` for `new_app`, `feature/<slug>` for `feature_addition` (slug derived from the interview output); if the branch name is already taken, suffix `-2`. Set `last_commit_sha` to `git rev-parse HEAD` on the working branch. This `.gitignore` change is bookkeeping — exempt from every phase's scope check, like `state.json` (see `role-boundaries.md`).
+
+**feature_addition edges:** the dirty-tree and non-default-branch interview questions apply only when a repo already existed before this run (i.e. `git init` was not run above). If the current checkout is on a non-default branch, or if the working tree is dirty, ask the user at the interview checkpoint (branch base / commit-stash-proceed) before proceeding with initialization.
 
 ## Resuming
 
-On invocation, if `.ios-orchestrator/state.json` exists, the orchestrator reads it to determine where to pick up. If `last_commit_sha` is set, before continuing it runs `git rev-parse HEAD` in `target_project_path` (on whichever branch is currently checked out) and compares it to `last_commit_sha`. (For `new_app` runs that haven't reached `pr_creation` yet, `last_commit_sha` is unset, so this drift check is skipped.)
+On invocation, if `.ios-orchestrator/state.json` exists, the orchestrator reads it to determine where to pick up. If `last_commit_sha` is set, before continuing it runs `git rev-parse HEAD` in `target_project_path` (on whichever branch is currently checked out) and compares it to `last_commit_sha`. (For pre-0.3.0 `new_app` runs that had not yet reached `pr_creation`, `last_commit_sha` is unset, so this drift check is skipped. Under the v0.3.0 git model, `last_commit_sha` is set at initialization and always present.)
 
-- **Match (or drift check skipped)**: proceed from `phase`/`phase_status` as recorded (if `phase_status: "complete"`, advance to the next phase in sequence; if `"in_progress"`, re-dispatch that phase using the original inputs, including `interview_output`/`architecture_summary` from `state.json` for the Architect).
+- **Match (or drift check skipped)**: proceed from `phase`/`phase_status` as recorded (if `phase_status: "complete"`, advance to the next phase in sequence; if `"in_progress"`, re-dispatch that phase using the original inputs, including `interview_output`/`architecture_summary` from `state.json` for the Architect — and `design_sources`, if set, so a resumed Architect can map them at graph creation per `design-mode.md`). For runs with a `task_graph`: tasks recorded `in_progress` reset to `pending` and re-dispatch fresh — the dispatched agent is instructed to inspect its `owned_files` for partial prior work first; tasks recorded `complete` are never re-run.
 - **Mismatch**: flag the drift to the user — show `last_commit_sha`, the current HEAD, and a one-line `git log` of the commits in between — and ask via `AskUserQuestion` whether to: proceed anyway (treating the new commits as part of this run's work), re-run the current phase from scratch, or have the Architect re-scope first (jumps back to the `architect` phase).

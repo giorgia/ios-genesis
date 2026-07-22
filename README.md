@@ -57,6 +57,16 @@ Every run maintains `.ios-orchestrator/state.json` in the target project: curren
 
 Stop at any checkpoint and re-run `/ios-genesis <path>` later: the orchestrator reloads the state, checks whether the repo's HEAD drifted from what it last recorded (and shows you the intervening commits if so), and continues from the exact phase it left off.
 
+## 0.3.0 — task board and fan-out
+
+The architect now decomposes the scope into a **task graph**: independently buildable units (`screen`/`feature` tasks) plus an optional `foundation` task (shared models, app entry, theme, and the debug screen router) that everything depends on, and an optional `integration` task (navigation wiring, router registry) that depends on everything. Each task declares the files it owns; ownership is disjoint and enforced by the post-phase scope check.
+
+Phases execute their slice of the graph in **waves** — up to 3 tasks at a time (you can change the cap at any checkpoint), dispatched as concurrent subagents. A **live task board** (Claude Code's native task list) mirrors every task through the run: what's pending, what each agent is doing right now, what's done, what failed.
+
+**Writing is parallel; building is serial.** In a shared Xcode target, compilation is inherently an integration act — a build sweeps in every file present, including a sibling's half-written screen. So fan-out agents only write (a local `swiftc -typecheck` at most), and the orchestrator runs `xcodegen generate` + one build at wave end, attributing any compile errors back to the owning tasks by file ownership and re-dispatching just those agents. Test runs follow the same shape: one `build-for-testing`, then per-task `test-without-building` runs on separate simulators.
+
+Supporting changes: a new **init-time git model** (repo, `.gitignore`, and a working branch exist before the first agent runs; every checkpoint makes a `wip(<phase>)` commit, so every phase has a baseline and resume is exact), and a **debug-only screen router** (`-ios-genesis-screen <Name>`, compiled behind `#if DEBUG`) that lets each visual verifier launch directly into the screen its task built instead of only seeing the launch screen.
+
 ## Field-tested
 
 The pipeline was validated end-to-end against a real GitHub repository: a counter app went from interview to squash-merged PR to release checklist across every phase. The dry run wasn't a demo — it was designed to find failures, and it found four real ones that are now fixed:
@@ -95,7 +105,7 @@ Four design modes, chosen at the first UI phase: **text-only** (design doc), **F
 
 Listed here because honest edges matter more than polish:
 
-- **Launch screen only.** The visual verifier can't navigate — `simctl` has no tap support — so screens behind interaction go unverified (they're reported, not silently skipped). Simulator interaction via XcodeBuildMCP is the next milestone.
+- **No in-screen interaction.** The visual verifier can't tap — `simctl` has no tap support. As of 0.3.0 the debug screen router reaches non-root *screens* directly, but states behind interaction within a screen (sheets, alerts, filled-in forms) still go unverified (they're reported, not silently skipped). Simulator interaction via XcodeBuildMCP is the next milestone.
 - **XCTest, not Swift Testing.** The test engineer should default to Swift Testing (`@Test`/`#expect`) for unit tests.
 - **No scripted evals.** Validation was a manual (if adversarial) dry run; a headless eval harness that runs a fixed spec through the pipeline and asserts on artifacts, builds, and tests is planned.
 - **Uniform model routing.** Every agent runs on the same model; per-role routing (stronger for architecture/review, faster for mechanical fixes) is planned.

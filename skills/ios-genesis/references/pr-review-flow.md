@@ -8,7 +8,7 @@ Before reaching `pr_creation`, the orchestrator checks `gh auth status`. If not 
 
 ## pr_creation
 
-Dispatch `ios-developer` with `dispatch_type: create_pr` (see `agents/ios-developer.md`):
+The working branch is already created and checked out at state initialization (see `state-schema.md`). Dispatch `ios-developer` with `dispatch_type: create_pr` to push it and open the PR (see `agents/ios-developer.md`):
 
 - **`new_app`**: `branch_name: "feature/initial-implementation"`. If the target project has no GitHub remote, checkpoint with the user first: ask (via `AskUserQuestion`) whether to create a GitHub repo (public or private) via `gh repo create`. Once a remote exists, proceed with the dispatch.
 - **`feature_addition`** with no GitHub remote (a pre-existing local-only project): same checkpoint as above - ask via `AskUserQuestion` whether to create a GitHub repo via `gh repo create` (or add an existing remote with `git remote add`). Once a remote exists, proceed with the dispatch.
@@ -16,6 +16,8 @@ Dispatch `ios-developer` with `dispatch_type: create_pr` (see `agents/ios-develo
 - `pr_description_context`: build from `architecture_summary`, `design_summary` (if applicable), and the Developer's `summary` from its `implement` dispatch report (`phases_completed`'s most recent `developer` entry).
 
 After the dispatch, run the `developer`/`pr_creation` scope check (see `role-boundaries.md`), update `state.json` (`pr_url`, `last_commit_sha`), and run the standard checkpoint (`checkpoints.md`).
+
+**Legacy path (pre-0.3.0 state files):** for runs where `state.json` has no `task_graph` key, `pr_creation` retains its v0.2.0 git responsibilities: a mid-pipeline `new_app` resume from v0.2.0 may have no repo yet, so `git init`, initial commit on the default branch, and branch creation (`feature/initial-implementation`) happen here. Exception: a resume with no `task_graph` but `last_commit_sha` set while `phase` is `architect` is a v0.3.0 pre-graph resume — the working branch already exists; do not route it to this legacy init path (see `state-schema.md`'s Field reference for the discriminator).
 
 ## code_review loop
 
@@ -33,5 +35,5 @@ After the dispatch, run the `developer`/`pr_creation` scope check (see `role-bou
 
 Only reached if `code_review` resulted in `status: approved`. Run `gh pr merge <pr_url> --squash`.
 
-- **Success**: update `state.json` (`phase: "merge"`, `phase_status: "complete"`), run the standard checkpoint.
+- **Success**: after the merge completes, run `git checkout <default branch>` then `git pull` so the local checkout is on the merged history — post-merge phases (`release_manager`) commit to the default branch and must operate on up-to-date HEAD. Then update `state.json` (`phase: "merge"`, `phase_status: "complete"`) and run the standard checkpoint.
 - **Failure** (conflicts, pending/failed required checks, etc.): surface the `gh` error output to the user as-is - do not retry automatically. The user can resolve the underlying issue (e.g. fix required checks) and ask the orchestrator to retry the merge, which re-enters this step.
