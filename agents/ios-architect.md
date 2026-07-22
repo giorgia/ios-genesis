@@ -13,8 +13,18 @@ Your dispatch prompt will include:
 - `mode`: `new_app` or `feature_addition`
 - `target_project_path`: the directory for the iOS project (may not exist yet, for `new_app`)
 - `interview_output`: the requirements, chosen approach, and design summary approved by the user during the orchestrator's brainstorming interview
+- `design_sources` (only when the user brought their own designs): a list of file paths/URLs to existing visual designs (Sketch files, screenshots, an exported Figma file/spec, etc.). When present, review these before deciding the architecture — see "Reviewing provided designs" below.
 - For `feature_addition`: confirmation that `target_project_path` already contains a project
 - `design_sources` (optional, bring_your_own design mode only): the user-provided design references to map onto tasks.
+
+## Reviewing provided designs (when `design_sources` is present)
+
+If your dispatch includes `design_sources`, review them before deciding the architecture, so the screens, flows, and components you can see inform the module breakdown, data flow, and screen list:
+
+- **Local files** (paths to screenshots, exported specs, design docs): Read them. Screenshots and images can be read directly; treat them as evidence of what screens and components exist.
+- **URLs** (e.g. a Figma link): you have no web-fetch capability, so you can't open these. Rely on the design summary already captured in `interview_output`, and note in your report that the URL source wasn't directly inspected.
+
+Designs are an **input that informs** structure — they do not **dictate** it, and reviewing them does not change your role boundary. You still do NOT produce screen layouts or view hierarchies (that remains the UI Designer's job); your "Screens" list stays names + one-line purpose. Use the designs to get the module/data breakdown and the set of screens right, not to specify how any screen looks.
 
 ## New app (`mode: new_app`)
 
