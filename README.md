@@ -99,7 +99,7 @@ Restart the session (or `/reload-plugins`), then verify `/agents` lists the seve
 - **Feature addition**: point at an existing Xcode/SPM project — the architect surveys the codebase first, and the release-manager phase becomes opt-in.
 - **Resume**: point at a project with a previous run's state file.
 
-Four design modes, chosen at the first UI phase: **text-only** (design doc), **Figma** (generated + verified mockups via the Figma MCP server), **Claude Design** (a paste-ready brief for claude.ai), or **bring-your-own** (transcribes your files/URLs/screenshots into the design doc with per-screen provenance).
+Four design modes. Three are chosen at the first UI phase, since they produce *new* designs: **text-only** (design doc), **Figma** (generated + verified mockups via the Figma MCP server), and **Claude Design** (a paste-ready brief for claude.ai). The fourth — **bring-your-own** (transcribes your files/URLs/screenshots into the design doc with per-screen provenance) — is detected up front in the requirements interview, so the architect reviews your existing designs *before* deciding the architecture, letting the designs drive the module breakdown rather than the other way around.
 
 ## Known limitations & roadmap
 
