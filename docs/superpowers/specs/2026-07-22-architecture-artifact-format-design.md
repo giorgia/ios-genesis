@@ -29,7 +29,7 @@ Unchanged: `## Overview`, `## Screens`, `## Risks`.
 
 A new reference document, parallel to `design-mode.md`, referenced from `SKILL.md` and invoked at the post-architect checkpoint (before advancing to the next phase).
 
-- **Detect available targets:** scan the session tool list for the relevant MCP prefixes — `mcp__*Google_Drive*` (Google Docs), `mcp__*Atlassian*` (Jira/Confluence), etc. — the same availability check `design-mode.md` uses for Figma.
+- **Detect available targets:** test the session tool list with a substring/contains check on tool names (not a shell glob) — `mcp__claude_ai_Google_Drive__` present ⇒ Google Docs available; the Atlassian prefix ⇒ Jira/Confluence; etc. This is the same availability check `design-mode.md` uses for Figma (`mcp__claude_ai_Figma__*`). Note: only the Google Drive MCP is present in the reference environment, so the Jira/Notion/Confluence detection paths ship unexercised in v1 (consistent with their publishers being deferred — §7).
 - **Always ask** via `AskUserQuestion`. Options: **Markdown** (always, recommended default) + one entry per connected external target. When markdown is the only option, still present the question as a single-choice confirmation rather than skipping it (satisfies "ask anyway").
 - **Persist** the choice as `architecture_format` in `state.json`; persist any resulting external artifact URL as `architecture_artifact_url`.
 
@@ -37,7 +37,7 @@ A new reference document, parallel to `design-mode.md`, referenced from `SKILL.m
 
 When the user selects Google Docs:
 
-1. Orchestrator renders the enriched `architecture.md` to a single self-contained HTML string — schema/tables as HTML `<table>`, mermaid diagrams rendered to inline images (see dependency below).
+1. Orchestrator renders the enriched `architecture.md` to a single self-contained HTML string — schema/tables as HTML `<table>`, mermaid diagrams rendered to inline images (see dependency below). The orchestrator invokes `mmdc` (via `Bash`) on each mermaid block, writing intermediate images to a scratch dir under `.ios-orchestrator/` (gitignored, so no scope-check impact), then inlines them into the HTML.
 2. Upload via the Drive MCP `create_file` with `content_mime_type: "text/html"` (Drive converts `text/html` → a native Google Doc, preserving tables and inline images — validated against the live MCP schema during brainstorming).
 3. Surface the returned Doc link at the checkpoint and store it as `architecture_artifact_url` in `state.json`.
 
@@ -54,7 +54,7 @@ When the user selects Google Docs:
 - `architecture_format`: `"markdown"` | `"google_docs"` | (future: `"jira"`, `"notion"`, `"confluence"`). Set at the architect checkpoint. Defaults to `"markdown"`.
 - `architecture_artifact_url`: URL of the published external artifact when one was created; unset (key omitted) otherwise.
 
-Both set during the architect checkpoint; carried through resume.
+Both are written as part of the architect checkpoint's existing state-update step (`checkpoints.md` step 1), alongside the other `state.json` mutations — not as a separate write — and are carried through resume. When the format is `google_docs`, the external publish (§3) runs during the checkpoint before this state update, so `architecture_artifact_url` is available to persist.
 
 ## 6. Affected documents
 
