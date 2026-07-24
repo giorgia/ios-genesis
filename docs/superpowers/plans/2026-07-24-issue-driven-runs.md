@@ -57,11 +57,19 @@ For each selected issue, run `gh issue view <n> --json number,title,body,labels,
 
 ## Seeding the interview
 
-The fetched `title` + `body` + `labels` (+ comments) become the starting material for the Step 0 interview in place of the `description` argument. The interview runs as normal (it can ask the user to clarify terse issues) and produces `interview_output`, which notes the issue numbers it covers. Everything downstream is unchanged — the Architect scopes a task graph from `interview_output`; there is no issue→task mapping.
+The fetched `title` + `body` + `labels` (+ comments) become the starting material for the Step 0 interview in place of the `description` argument. The interview runs as normal (it can ask the user to clarify terse issues) and produces `interview_output`, which notes the issue numbers it covers. Everything downstream is unchanged — the Architect scopes a task graph from `interview_output`; there is no issue→task mapping. When issues seeded the run, the Step 0 interview presentation lists the selected issue numbers and titles, and notes any that were named-but-skipped (nonexistent/already-closed).
 
 ## Persisting
 
 Record the selection as `source_issues` (a list of `{number, title, url}`) written at **state initialization**, alongside `interview_output` (see `state-schema.md`). Between the picker and the init write it is held in-session, exactly like `interview_output`.
+
+## Error handling (soft-fail)
+
+Every failure degrades to the normal flow or skips the offending issue — a run is never aborted over issue handling:
+- No `gh` / not authenticated / no GitHub remote / no open issues → the issue path is not offered; run the normal description interview.
+- `gh issue view <n>` fails on a selected issue → surface the error and offer to retry or skip that issue; never abort the run.
+- A named issue number that does not exist or is already closed → warn, skip it, and note it in the Step 0 summary.
+- Empty or unset `source_issues` at pr_creation → no `Closes` lines are added; the run behaves exactly as a normal description run.
 
 ## Closing (pr_creation)
 
@@ -71,10 +79,10 @@ See `pr-review-flow.md`. In short: before the `create_pr` dispatch, present the 
 - [ ] **Step 2: Verify the doc exists and has the required sections**
 
 Run: `grep -c "^## " skills/ios-genesis/references/issue-driven-runs.md`
-Expected: `6` (Gating, Selecting issues, Fetching, Seeding the interview, Persisting, Closing).
+Expected: `7` (Gating, Selecting issues, Fetching, Seeding the interview, Persisting, Error handling, Closing).
 
-Run: `grep -n "issues:\|label:\|milestone:\|source_issues\|Closes #N\|gh issue list\|gh issue view" skills/ios-genesis/references/issue-driven-runs.md`
-Expected: matches present (grammar tokens, state field, closing keyword, both `gh` commands).
+Run: `grep -n "issues:\|label:\|milestone:\|source_issues\|Closes #N\|gh issue list\|gh issue view\|warn, skip\|retry or skip" skills/ios-genesis/references/issue-driven-runs.md`
+Expected: matches present (grammar tokens, state field, closing keyword, both `gh` commands, and the soft-fail warn/skip + retry rules).
 
 - [ ] **Step 3: Commit**
 

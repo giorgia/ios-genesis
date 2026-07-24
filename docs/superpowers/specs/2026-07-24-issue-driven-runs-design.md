@@ -51,7 +51,7 @@ The `Closes #N` list must land in the PR **body**, and the user's drop decision 
 
 ## 5. Checkpoint presentation
 
-- Step 0 checkpoint: when issues seeded the run, the summary lists the selected issue numbers/titles and notes any that were named-but-skipped (nonexistent/already-closed).
+- Step 0 interview presentation (documented in `issue-driven-runs.md`, not the post-phase `checkpoints.md` procedure, which has no Step 0 step): when issues seeded the run, the summary lists the selected issue numbers/titles and notes any that were named-but-skipped (nonexistent/already-closed).
 - The `Closes #N` drop decision is an `AskUserQuestion` that runs *before* the `create_pr` dispatch (§3), not at the post-phase checkpoint. The standard pr_creation checkpoint (which fires after the PR exists) simply reports, in its summary, which issues the PR will auto-close on merge. Existing PR-summary content is otherwise unchanged.
 
 ## 6. Error handling & gating (all soft-fail)
@@ -63,10 +63,10 @@ The `Closes #N` list must land in the PR **body**, and the user's drop decision 
 
 ## 7. Affected documents
 
-- `skills/ios-genesis/references/issue-driven-runs.md` — **new**; gating detection, `gh` commands, selection UX, interview seeding, closing rules.
+- `skills/ios-genesis/references/issue-driven-runs.md` — **new**; gating detection, `gh` commands, selection UX, interview seeding, the Step 0 issue summary, soft-fail error handling (§6), and closing rules.
 - `skills/ios-genesis/references/orchestration-flow.md` — Step 0 gains: detect remote+`gh` → offer/fetch issues → seed interview → persist `source_issues`.
 - `skills/ios-genesis/references/state-schema.md` — `source_issues` field definition **plus** adding `source_issues` to the Initialization enumeration (written at init, alongside `interview_output`/`design_sources`).
-- `skills/ios-genesis/references/checkpoints.md` — Step 0 issue summary; pr_creation checkpoint summary reports which issues will auto-close (the drop decision itself is pre-`create_pr`, §3/§5).
+- `skills/ios-genesis/references/checkpoints.md` — pr_creation checkpoint summary reports which issues will auto-close on merge (the drop decision itself is pre-`create_pr`, §3/§5). The Step 0 issue summary lives in `issue-driven-runs.md`/`orchestration-flow.md`, not here.
 - `skills/ios-genesis/references/pr-review-flow.md` — the pre-`create_pr` `Closes #N` drop `AskUserQuestion`, and adding the retained `Closes #N` list to `pr_description_context` so the developer writes it into the PR body. The `merge` step is unchanged.
 - `agents/ios-developer.md` — the `create_pr` instructions (currently "a body built from `pr_description_context`") gain one line: if `pr_description_context` contains `Closes #N` trailer lines, reproduce them **verbatim** at the end of the PR body, since GitHub only auto-closes on the exact keyword. (This is the sole agent-file edit; no new agents.)
 - `skills/ios-genesis/SKILL.md` — reference the new doc under Reference docs.
