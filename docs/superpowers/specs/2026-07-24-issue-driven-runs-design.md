@@ -21,10 +21,10 @@ Runs only for `mode: feature_addition` against a repo with a GitHub remote.
 
 - **Gating detection:** confirm `gh` is available and authed (`gh auth status`) and the repo has a GitHub remote (`gh repo view` succeeds). If any check fails, do not offer the issue path; proceed with the normal free-text description interview. No error, no risk — the offer simply isn't shown (mirrors how `design-mode.md` omits Figma when its MCP is absent).
 - **Selection:**
-  - If the invocation named issues — explicit numbers (`#12 #13` / `12,13`) or a `label:`/`milestone:` qualifier — fetch those directly and skip the picker.
-  - Otherwise run `gh issue list --state open --json number,title,labels`. If it returns any issues, ask via `AskUserQuestion` (multi-select): *"Work from existing issues, or describe fresh?"* — options are the open issues plus a "No — describe fresh" escape that drops to the normal description flow. If there are no open issues, skip silently to the normal flow.
-- **Fetch selected issues:** `gh issue view <n> --json number,title,body,labels,url,comments` for each. Comments are included only when the body is short/terse (heuristic: pull comments to give the interview more to clarify from).
-- **Persist:** write `source_issues` to `state.json` (see §4) before the interview proceeds, so the selection survives resume and reaches pr_creation.
+  - **Invocation shortcut (strict grammar, no prose scanning):** the description argument is treated as an issue shortcut *only* when it begins with one of these exact tokens: `issues:` followed by numbers (`issues:12,13,14`), `label:<name>`, or `milestone:<name>`. Anything else — including free text that merely contains a `#` (e.g. "fix the #1 priority crash") — is treated as a normal free-text description, and the picker path below runs. This explicit grammar removes any ambiguity between an issue reference and ordinary prose.
+  - **Interactive picker (default):** when no shortcut token is present, run `gh issue list --state open --json number,title,labels`. If it returns any issues, ask via `AskUserQuestion` (multi-select): *"Work from existing issues, or describe fresh?"* — options are the open issues plus a "No — describe fresh" escape that drops to the normal description flow. If there are no open issues, skip silently to the normal flow.
+- **Fetch selected issues:** `gh issue view <n> --json number,title,body,labels,url,comments` for each. Comments are always fetched and passed to the interview, which uses them as available (no length heuristic — fetching unconditionally is simpler and avoids a magic threshold).
+- **Persist:** the selected issues are recorded in `source_issues` (see §4). Because Step 0 for `feature_addition` runs *before* `state.json` exists, `source_issues` is written at **state initialization**, alongside `interview_output` (see `state-schema.md`'s Initialization section) — not as a separate pre-interview write. This is the same timing as `interview_output`/`design_sources`, and it makes the selection survive resume and reach pr_creation.
 
 ## 2. Issues seed the interview
 
@@ -34,22 +34,25 @@ Runs only for `mode: feature_addition` against a repo with a GitHub remote.
 
 ## 3. Closing the loop (pr_creation)
 
-- At `pr_creation`, the orchestrator appends a `Closes #N` line to the PR body for each issue in `source_issues` (default: all of them).
-- The pr_creation checkpoint (`checkpoints.md`) presents the close-list. The user may drop any issue whose work isn't actually complete; dropped issues get no `Closes` line and stay open (the orchestrator may post a brief comment on a dropped issue noting the run addressed it only partially, linking the PR).
-- The existing `merge` phase triggers GitHub's native auto-close of the listed issues on merge to the default branch. If the run stops before merge, nothing is closed.
-- If `source_issues` is empty (the run fell back to a description), no `Closes` lines are added — pr_creation behaves exactly as today.
+The `Closes #N` list must land in the PR **body**, and the user's drop decision must happen **before** the PR is created (the developer's `create_pr` dispatch builds and pushes the body, and the standard checkpoint fires only *after* the PR already exists — so a post-hoc drop would require editing an already-pushed PR, which we avoid).
+
+- **Before dispatching `create_pr`:** when `source_issues` is non-empty, the orchestrator presents the close-list (default: all of them) via `AskUserQuestion` and lets the user drop any issue whose work isn't actually complete.
+- **Injection:** the resulting final list is passed into the `create_pr` dispatch as part of `pr_description_context` (see `pr-review-flow.md`), and the ios-developer writes a `Closes #N` line per retained issue into the PR **body**. Putting the keyword in the PR description (not a commit message) is required because the `merge` phase squash-merges, which rewrites commits — only the PR-body keyword reliably triggers auto-close.
+- **Auto-close:** GitHub closes the referenced issues natively when the PR merges to the default branch. The existing `merge` phase (`gh pr merge --squash`) is unchanged and adds no closing logic — the keyword in the body is the sole mechanism. If the run stops before merge, nothing is closed.
+- **Dropped issues** get no `Closes` line and stay open; no comment is posted (a partial-completion auto-comment is deferred — §8).
+- If `source_issues` is empty (the run fell back to a description), no `Closes` lines are added and this step is a no-op — pr_creation behaves exactly as today.
 
 ## 4. State schema
 
 `references/state-schema.md` gains one field:
 
 - `source_issues`: list of `{ "number": int, "title": string, "url": string }` for the issues a run is built from. Present only for issue-driven `feature_addition` runs; **unset (key omitted)** otherwise, per the schema's existing convention.
-- Set once, at Step 0, when issues are selected. Read at pr_creation to build the `Closes #N` list. Carried through resume unchanged — a resumed run still closes its issues even in a later session.
+- Written **at initialization** (added to the Initialization enumeration in `state-schema.md`, alongside `interview_output` and `design_sources`), from the Step 0 selection. Read before the `create_pr` dispatch to build the `Closes #N` list (§3). Carried through resume unchanged — a resumed run still closes its issues even in a later session.
 
 ## 5. Checkpoint presentation
 
 - Step 0 checkpoint: when issues seeded the run, the summary lists the selected issue numbers/titles and notes any that were named-but-skipped (nonexistent/already-closed).
-- pr_creation checkpoint: additionally presents the `Closes #N` list with the drop-any control described in §3. Existing PR-summary content is unchanged.
+- The `Closes #N` drop decision is an `AskUserQuestion` that runs *before* the `create_pr` dispatch (§3), not at the post-phase checkpoint. The standard pr_creation checkpoint (which fires after the PR exists) simply reports, in its summary, which issues the PR will auto-close on merge. Existing PR-summary content is otherwise unchanged.
 
 ## 6. Error handling & gating (all soft-fail)
 
@@ -62,9 +65,9 @@ Runs only for `mode: feature_addition` against a repo with a GitHub remote.
 
 - `skills/ios-genesis/references/issue-driven-runs.md` — **new**; gating detection, `gh` commands, selection UX, interview seeding, closing rules.
 - `skills/ios-genesis/references/orchestration-flow.md` — Step 0 gains: detect remote+`gh` → offer/fetch issues → seed interview → persist `source_issues`.
-- `skills/ios-genesis/references/state-schema.md` — `source_issues` field + init/resume notes.
-- `skills/ios-genesis/references/checkpoints.md` — Step 0 issue summary; pr_creation `Closes #N` review.
-- `skills/ios-genesis/references/pr-review-flow.md` — pr_creation PR body includes `Closes #N` from `source_issues`.
+- `skills/ios-genesis/references/state-schema.md` — `source_issues` field definition **plus** adding `source_issues` to the Initialization enumeration (written at init, alongside `interview_output`/`design_sources`).
+- `skills/ios-genesis/references/checkpoints.md` — Step 0 issue summary; pr_creation checkpoint summary reports which issues will auto-close (the drop decision itself is pre-`create_pr`, §3/§5).
+- `skills/ios-genesis/references/pr-review-flow.md` — the pre-`create_pr` `Closes #N` drop `AskUserQuestion`, and adding the retained `Closes #N` list to `pr_description_context` so the developer writes it into the PR body. The `merge` step is unchanged.
 - `skills/ios-genesis/SKILL.md` — reference the new doc under Reference docs.
 - `README.md` — document issue-driven runs.
 - `.claude-plugin/plugin.json` — version bump to `0.4.0`.
@@ -84,4 +87,5 @@ Runs only for `mode: feature_addition` against a repo with a GitHub remote.
 - Invocation naming explicit issue numbers: confirm the picker is skipped and only those issues are used; a nonexistent number is warned-and-skipped.
 - No GitHub remote (or `gh` unauthed): confirm the issue path is silently absent and the normal description flow runs unchanged.
 - Resume an issue-driven run after Step 0: confirm `source_issues` survives and pr_creation still closes them.
+- No-remote interaction: confirm the §1 gating (issue path requires an existing GitHub remote) means an issue-driven run can never reach pr_creation's "create a repo?" checkpoint — the issues live on an origin that already exists, so the new-repo path (whose fresh repo wouldn't contain those issue numbers) cannot co-occur. This is prevented by construction, not handled at pr_creation.
 - Scope check: the feature touches only orchestrator references/docs + `plugin.json`; no new agent files required (the orchestrator drives `gh`, consistent with the existing repo/PR flow).
