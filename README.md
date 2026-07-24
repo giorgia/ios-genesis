@@ -99,6 +99,8 @@ Restart the session (or `/reload-plugins`), then run `/plugin` and confirm `ios-
 - **Feature addition**: point at an existing Xcode/SPM project — the architect surveys the codebase first, and the release-manager phase becomes opt-in.
 - **Resume**: point at a project with a previous run's state file.
 
+**Issue-driven runs (feature addition).** When you point a feature-addition run at a project whose GitHub repo has open Issues (and `gh` is authenticated), Step 0 offers to build the run from selected Issues instead of a typed description: it lists your open issues to pick from, or you can name them in the invocation (`issues:12,13,14`, `label:bug`, or `milestone:v1.0.1`). The picked issues seed the requirements interview, and the run's PR gets `Closes #N` for them (reviewed before the PR is opened), so they close automatically when it merges. If `gh` isn't set up or the repo has no issues, runs work exactly as before.
+
 Four design modes. Three are chosen at the first UI phase, since they produce *new* designs: **text-only** (design doc), **Figma** (generated + verified mockups via the Figma MCP server), and **Claude Design** (a paste-ready brief for claude.ai). The fourth — **bring-your-own** (transcribes your files/URLs/screenshots into the design doc with per-screen provenance) — is detected up front in the requirements interview, so the architect reviews your existing designs *before* deciding the architecture, letting the designs drive the module breakdown rather than the other way around.
 
 ## Known limitations & roadmap
