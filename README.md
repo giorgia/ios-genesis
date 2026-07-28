@@ -109,7 +109,7 @@ Four design modes. Three are chosen at the first UI phase, since they produce *n
 
 Listed here because honest edges matter more than polish:
 
-- **No in-screen interaction.** The visual verifier can't tap — `simctl` has no tap support. As of 0.3.0 the debug screen router reaches non-root *screens* directly, but states behind interaction within a screen (sheets, alerts, filled-in forms) still go unverified (they're reported, not silently skipped). Simulator interaction via XcodeBuildMCP is the next milestone.
+- **In-screen interaction (opt-in).** When XcodeBuildMCP is connected, the visual verifier drives the app in the simulator — tapping, typing, and reading the UI to verify per-screen *flows* the UI Designer declares in `docs/design.md`, not just the launch screen. Flows that need real hardware (e.g. motion sensors) are tagged `device`, get a distinct `deferred_to_device` verdict, and are handed off to you for on-device confirmation at the checkpoint. Without XcodeBuildMCP, verification gracefully degrades to the structural launch-screen check.
 - **XCTest, not Swift Testing.** The test engineer should default to Swift Testing (`@Test`/`#expect`) for unit tests.
 - **No scripted evals.** Validation was a manual (if adversarial) dry run; a headless eval harness that runs a fixed spec through the pipeline and asserts on artifacts, builds, and tests is planned.
 - **Uniform model routing.** Every agent runs on the same model; per-role routing (stronger for architecture/review, faster for mechanical fixes) is planned.
