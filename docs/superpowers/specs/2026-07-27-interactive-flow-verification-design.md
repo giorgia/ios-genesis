@@ -32,6 +32,8 @@ Each screen's section in `docs/design.md` gains a `### Flows to verify` list. Ea
 
 ## 2. The verifier drives flows (`agents/ios-visual-verifier.md`, Approach A)
 
+The full flow protocol (detection, step budget, the four verdicts, the device hand-off, degrade behavior) is documented canonically in the new `references/interactive-verification.md` (§7); this section is the design summary.
+
 **XcodeBuildMCP tools & detection.** Add the XcodeBuildMCP UI-automation tools to the verifier's `tools:` list. The tools the verifier uses are `describe_ui` (accessibility hierarchy of the current screen), `tap`, `type_text`, `swipe`/`gesture`, and `screenshot`; plus the sim-lifecycle tools it may already need (`build_run_sim`/`launch_app_sim`) where it currently shells out to `simctl`. The concrete MCP tool identifiers are environment-dependent on how XcodeBuildMCP is registered (its prefix, e.g. `mcp__XcodeBuildMCP__…`, is set by the user's MCP config — exactly as `design-mode.md` treats the Figma prefix `mcp__claude_ai_Figma__*` as a substring). **Detection:** the orchestrator checks the session tool list for the presence of the XcodeBuildMCP automation tools (match on the tool basename, e.g. a tool whose name ends in `__describe_ui` and one ending in `__tap`, independent of the registration prefix) and passes an `interactive: true|false` flag into each verifier dispatch. This works because subagents inherit the session's MCP tools — the same session-wide assumption that already lets the verifier carry `mcp__claude_ai_Figma__get_screenshot` while the orchestrator detects Figma in `design-mode.md`.
 
 **Two layers, in order (both the fan-out and solo/single-task procedures gain this — see §7).**
