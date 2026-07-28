@@ -24,6 +24,7 @@ Load these as needed during the run - don't read them all upfront:
 - `references/design-mode.md` - the design-mode question and its effect on the UI Designer dispatch
 - `references/pr-review-flow.md` - PR creation, the review loop, and auto-merge
 - `references/issue-driven-runs.md` - consuming selected GitHub Issues as `feature_addition` input and closing them on merge (feature_addition only)
+- `references/interactive-verification.md` - driving the app in the simulator (tap/type/read-UI via XcodeBuildMCP) to verify per-screen flows, with a real-device hand-off for hardware-gated flows
 - `references/orchestration-flow.md` - the full phase sequence for `new_app` and `feature_addition`, and the orchestrator interview (step 0)
 - `references/task-board.md` - task board protocol for live pipeline visibility
 
