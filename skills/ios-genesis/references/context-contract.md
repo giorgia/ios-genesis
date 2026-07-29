@@ -64,7 +64,12 @@ Files never worth their token cost, kept behind deny rules rather than model dis
 
 - `**/*.pbxproj` (20k+ tokens alone), `**/Package.resolved`, `**/*.xcodeproj/**`, `**/Pods/**`, `**/DerivedData/**`, `**/__Snapshots__/**`, generated API clients, and non-base localized `*.strings` (`*/*.lproj/*.strings` except `Base.lproj`/`en.lproj`).
 
-**Delivery:** if a Claude Code plugin can ship permission/deny rules (bundled settings), they are shipped so protection is automatic on install. If not, the README documents a one-time `settings.json` snippet and the worker prompts carry a belt-and-suspenders instruction never to read these paths. The chosen path is recorded here at implementation.
+**Delivery (v0.7.0):** two guaranteed-portable layers, chosen because they work regardless of whether a plugin can auto-ship permission rules:
+
+1. **Worker-prompt guard** — every worker agent's "Reading files (context discipline)" section instructs it never to read these paths. In effect on install, no user setup.
+2. **Documented `settings.json` snippet** — the README's install section carries a `permissions.deny` snippet the user can paste into `~/.claude/settings.json` (or the project's `.claude/settings.json`) to enforce the deny at the harness level.
+
+If a future Claude Code version lets a plugin bundle permission rules that auto-apply, that can replace layer 2 — until then the prompt guard is the always-on protection and the snippet is the hard enforcement.
 
 ## Validation
 

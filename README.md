@@ -97,7 +97,26 @@ Requires [Claude Code](https://claude.com/claude-code), an authenticated [`gh` C
 /plugin install ios-genesis@ios-orchestrator
 ```
 
-Restart the session (or `/reload-plugins`), then run `/plugin` and confirm `ios-genesis` is listed and enabled — the `/ios-genesis` command and its seven `ios-genesis:*` subagents install with it.
+Restart the session (or `/reload-plugins`), then run `/plugin` and confirm `ios-genesis` is listed and enabled — the `/ios-genesis` command and its `ios-genesis:*` subagents install with it.
+
+**Optional — cut token cost (recommended).** The pipeline's agents are already instructed never to read expensive generated files, but you can enforce it at the harness level by adding a deny list to `~/.claude/settings.json` (or the project's `.claude/settings.json`):
+
+```json
+{
+  "permissions": {
+    "deny": [
+      "Read(**/*.pbxproj)",
+      "Read(**/Package.resolved)",
+      "Read(**/*.xcodeproj/**)",
+      "Read(**/Pods/**)",
+      "Read(**/DerivedData/**)",
+      "Read(**/__Snapshots__/**)"
+    ]
+  }
+}
+```
+
+`project.pbxproj` alone can be 20k+ tokens and is never worth reading. See the "context contract" (v0.7.0) below.
 
 ### Usage
 
