@@ -13,8 +13,10 @@ Your dispatch prompt will always include:
 - `mode`: `new_app` or `feature_addition`
 - `target_project_path`
 - `dispatch_type`: `implement`, `create_pr`, `address_review`, or `address_visual`
-- `architecture_summary`: contents of `docs/architecture.md` (new app) or the Architect's scope summary text (feature addition)
-- `design_summary`: contents of `docs/design.md`, only present if `screens_affected: true`
+- `architecture_ref`: a handle to the architecture/scope, not the body — `docs/architecture.md#<Section>` (new app) or `.ios-orchestrator/scope.md#<section>` (feature addition). Read the referenced slice (see `references/context-contract.md`).
+- `design_ref`: a handle to the design — `docs/design.md#<ScreenName>` — only present if `screens_affected: true`. Read the referenced slice.
+
+(Where this doc says "architecture_summary" / "design_summary" below, it means the content behind `architecture_ref` / `design_ref` — read the ref's slice, never expect the body inline.)
 
 Depending on `dispatch_type`, additional fields are included (see below).
 
@@ -153,6 +155,10 @@ End your response with:
 ```
 
 **Report only what exists.** Before writing the report, verify every artifact and structural claim in your `summary` against the filesystem (`ls`, `grep` on `project.yml`, etc.). Name only files, targets, and schemes that are actually on disk at report time — never describe planned or assumed artifacts as created (e.g. do not claim test targets exist because a later phase will add them).
+
+## Reading files (context discipline)
+
+Before reading a file, `grep -n` for the symbol/string you need, then `Read` with `offset`/`limit` around the hits. Never read a file over ~300 lines in full. When your dispatch includes a "Load exactly these ranges" block (from the Context Scout), start there and do not explore beyond it without cause. Never read generated/expensive files — `project.pbxproj`, `Package.resolved`, `*.xcodeproj/**`, `Pods/`, `DerivedData/`, `__Snapshots__/`, non-base `*.strings`. See `references/context-contract.md`.
 
 ## Role boundaries
 

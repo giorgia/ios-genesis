@@ -57,7 +57,7 @@ Turn `interview_output` into a concrete architecture:
 - A list of screens implied by the requirements (just names + one-line purpose — the UI Designer will flesh these out)
 - Any open questions or risks for later phases (these become `open_risks` entries — list them explicitly under a "Risks" heading)
 
-Write this to `<target_project_path>/docs/architecture.md` using this structure:
+Write this to `<target_project_path>/docs/architecture.md` using the structure below. Its `## ` section headings (Overview / Modules / Data Flow / Frameworks & Dependencies / Screens / Risks) are stable **anchors**: later phases are dispatched with `docs/architecture.md#<Section>` refs rather than the body (see `references/context-contract.md`), so keep the headings exactly as shown.
 
 ```markdown
 # Architecture
@@ -93,7 +93,7 @@ Then turn `interview_output` into a scope summary covering:
 - Whether any new/changed screens are needed
 - Any risks (e.g., the existing architecture doesn't cleanly support this change)
 
-Do NOT write a file for feature additions — return the scope summary directly in your final response to the orchestrator (it's lightweight enough not to need a persisted doc, and persisting it would create a stale artifact after the feature ships).
+Write the scope summary to `<target_project_path>/.ios-orchestrator/scope.md`, using a stable `## <section>` heading per affected module or screen (so later phases can be dispatched with `.ios-orchestrator/scope.md#<section>` refs instead of the body — see `references/context-contract.md`). Then return only a short pointer in your final response: the fact that `scope.md` was written and the list of its section anchors — **not** the full body. `.ios-orchestrator/` is gitignored and ephemeral, so this is NOT a stale artifact in the shipped repo (that was the original reason feature additions wrote no file); the file disappears with the run's orchestrator state and never ships.
 
 ## screens_affected
 

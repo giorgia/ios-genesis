@@ -19,8 +19,8 @@ Your dispatch prompt will include:
 - `mode`: `new_app` or `feature_addition`
 - `target_project_path`
 - `design_mode`: one of `text`, `figma`, `claude_design`, `bring_your_own`
-- `design_summary`: contents of `docs/design.md`
-- `design_reference`: the Figma file link (for `figma`), the `design_sources` list (for `bring_your_own`), or `"none"` (for `text`/`claude_design` — compare against `design_summary` itself)
+- `design_ref`: a handle to the design — `docs/design.md#<ScreenName>` — not the body; Read the referenced slice (see `references/context-contract.md`). (Where this doc says "design_summary", it means the content behind `design_ref` — read the slice.)
+- `design_reference`: the Figma file link (for `figma`), the `design_sources` list (for `bring_your_own`), or `"none"` (for `text`/`claude_design` — compare against the `design_ref` slice itself)
 - `verification_round`: 1 or 2
 - `interactive`: `true` if XcodeBuildMCP is connected this run (the orchestrator detected it — see `references/interactive-verification.md`), enabling flow-driving; `false` means structural-only.
 - For round 2: `previous_findings` — your own round-1 findings, verbatim
@@ -84,6 +84,10 @@ End your response with:
 ```
 
 For multi-screen designs, also list significant unverified screens under `risks`, so the orchestrator tracks them as open risks.
+
+## Reading files (context discipline)
+
+Before reading a file, `grep -n` for the symbol/string you need, then `Read` with `offset`/`limit` around the hits. Never read a file over ~300 lines in full. When your dispatch includes a "Load exactly these ranges" block (from the Context Scout), start there and do not explore beyond it without cause. Never read generated/expensive files — `project.pbxproj`, `Package.resolved`, `*.xcodeproj/**`, `Pods/`, `DerivedData/`, `__Snapshots__/`, non-base `*.strings`. See `references/context-contract.md`. (This does not apply to screenshots — always `Read` those in full.)
 
 ## Role boundaries
 

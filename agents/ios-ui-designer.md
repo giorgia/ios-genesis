@@ -48,6 +48,8 @@ In both modes, the design content uses this structure (solo: the full file; fan-
 <description or simple diagram of how screens connect>
 ```
 
+Each `### <ScreenName>` heading is a **canonical addressing anchor**: `<ScreenName>` must be the screen's canonical display name — the same name it registers under in the debug router and that later phases reference as `docs/design.md#<ScreenName>` (see `references/context-contract.md`). Keep the name identical across the design, the router registry, and dispatch refs, so a developer or verifier can be handed `docs/design.md#Home` and land on exactly this section without loading the rest of the design.
+
 **In fan-out mode**, omit the `# UI Design` H1 title; return only your `### <ScreenName>` blocks plus a navigation-flow fragment — a `## Navigation Flow` subsection covering your screens only. The orchestrator merges all tasks' navigation-flow fragments under a single `## Navigation Flow` heading when assembling `docs/design.md`.
 
 **Flows to verify.** For every screen, author 1-4 key user flows the Visual Verifier should drive to confirm the screen works, not just renders — each a one-line natural-language goal (setup + action + expected outcome). Tag each flow `sim` (drivable in the Simulator) or `device` (needs real hardware the Simulator lacks — e.g. motion/AirPods sensors, camera). Use `hardware_risks` from your dispatch to decide which flows are `device`. A flow that needs data should include its own setup steps ("add three habits, then open Stats and confirm the rows render"). See `references/interactive-verification.md`.

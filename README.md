@@ -75,6 +75,20 @@ Not every change needs nine phases. A one-line bug fix used to walk the same arc
 
 `new_app` is always "large" and untouched. The lane's reference doc loads only on quick-lane runs, so it adds zero overhead to normal runs.
 
+## 0.7.0 — the context contract
+
+Every subagent dispatch used to re-ship the whole architecture and design docs, and every cold worker explored the project from scratch — reading 900-line files to change one line, and 20k-token `project.pbxproj` files that are never worth it. On a multi-task run the design doc got re-embedded once per task. That's the token cost that made a small change expensive.
+
+v0.7.0 makes the orchestrator carry **handles, never bodies**, and gives workers a cheap map so they never explore:
+
+- **Repo map** — the orchestrator regenerates a compact symbol index (`.ios-orchestrator/symbols.txt`, gitignored) on its build rhythm.
+- **Context Scout** — a cheap `haiku` agent that, before any worker that reads existing code, returns the exact files and line ranges to load; the worker opens with those and nothing else.
+- **Refs, not bodies** — dispatches pass `docs/design.md#Home` / `.ios-orchestrator/scope.md#<section>` refs; the Architect writes the feature-addition scope to a gitignored file instead of stuffing it into `state.json`; the orchestrator holds zero file bodies.
+- **Search before read** — every worker greps first and reads with `offset`/`limit`; never a whole large file.
+- **Deny list** — expensive generated files are refused (see the install snippet above).
+
+It's a plumbing change: the output of a run is identical, the token cost is not. Module-split into SPM packages (finer isolation, faster builds) is the deferred v0.8.0.
+
 ## Field-tested
 
 The pipeline was validated end-to-end against a real GitHub repository: a counter app went from interview to squash-merged PR to release checklist across every phase. The dry run wasn't a demo — it was designed to find failures, and it found four real ones that are now fixed:
@@ -97,7 +111,26 @@ Requires [Claude Code](https://claude.com/claude-code), an authenticated [`gh` C
 /plugin install ios-genesis@ios-orchestrator
 ```
 
-Restart the session (or `/reload-plugins`), then run `/plugin` and confirm `ios-genesis` is listed and enabled — the `/ios-genesis` command and its seven `ios-genesis:*` subagents install with it.
+Restart the session (or `/reload-plugins`), then run `/plugin` and confirm `ios-genesis` is listed and enabled — the `/ios-genesis` command and its `ios-genesis:*` subagents install with it.
+
+**Optional — cut token cost (recommended).** The pipeline's agents are already instructed never to read expensive generated files, but you can enforce it at the harness level by adding a deny list to `~/.claude/settings.json` (or the project's `.claude/settings.json`):
+
+```json
+{
+  "permissions": {
+    "deny": [
+      "Read(**/*.pbxproj)",
+      "Read(**/Package.resolved)",
+      "Read(**/*.xcodeproj/**)",
+      "Read(**/Pods/**)",
+      "Read(**/DerivedData/**)",
+      "Read(**/__Snapshots__/**)"
+    ]
+  }
+}
+```
+
+`project.pbxproj` alone can be 20k+ tokens and is never worth reading. See the "context contract" (v0.7.0) below.
 
 ### Usage
 
