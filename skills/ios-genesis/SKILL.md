@@ -27,6 +27,7 @@ Load these as needed during the run - don't read them all upfront:
 - `references/interactive-verification.md` - driving the app in the simulator (tap/type/read-UI via XcodeBuildMCP) to verify per-screen flows, with a real-device hand-off for hardware-gated flows
 - `references/orchestration-flow.md` - the full phase sequence for `new_app` and `feature_addition`, and the orchestrator interview (step 0)
 - `references/quick-lane.md` - the lightweight quick-fix lane for small `feature_addition` changes (classify → one checkpoint → implement → test → review → PR → auto-merge)
+- `references/context-contract.md` - how context moves: the repo map (`symbols.txt`), the Context Scout, refs-not-bodies dispatches, search-before-read, and the deny list (the orchestrator carries handles, not bodies)
 - `references/task-board.md` - task board protocol for live pipeline visibility
 
 ## Top-level control flow
@@ -47,6 +48,7 @@ Load these as needed during the run - don't read them all upfront:
 
 ## Notes
 
-- Subagents have no memory between dispatches - every dispatch must include all context the subagent needs (relevant `state.json` fields, prior artifacts/summaries, user feedback for "Make changes first" re-dispatches, reviewer comments for review-loop re-dispatches).
-- Fan-out dispatches go out as concurrent `Agent` calls in one message; every dispatch still carries all context the subagent needs.
+- Subagents have no memory between dispatches - every dispatch includes the **handles** (file paths + section anchors) and minimal state the subagent needs (relevant `state.json` fields, `architecture_ref`/`design_ref` refs, user feedback for "Make changes first" re-dispatches, reviewer comments for review-loop re-dispatches), and the subagent reads its own slice. **Never embed file or doc bodies in a dispatch or in the orchestrator's own reasoning — the orchestrator carries handles, not bodies.** See `references/context-contract.md`.
+- **Context Scout:** before dispatching a *reads-existing-code* worker (every `feature_addition` worker, `test_engineer`, `code_review`, `integration`, and `address_visual`/`address_review` re-dispatches), first dispatch `ios-context-scout` with the task scope + `owned_files` + `symbols.txt`, then inject its returned ranges into the worker dispatch as a "Load exactly these ranges" block (see `references/context-contract.md`). Greenfield `foundation`/`screen` writes are not scouted.
+- Fan-out dispatches go out as concurrent `Agent` calls in one message; every dispatch still carries the handles the subagent needs (never bodies).
 - If the user chooses "Stop here" at any checkpoint, end the session normally - `state.json` is already up to date for a future `/ios-genesis <target_project_path> ...` invocation to resume.
