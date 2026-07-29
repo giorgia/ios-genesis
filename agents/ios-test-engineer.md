@@ -13,8 +13,8 @@ Your dispatch prompt will include:
 - `mode`: `new_app` or `feature_addition`
 - `target_project_path`
 - `dispatch_type`: `test` (initial test pass), `retest` (re-run/update tests after reviewer-driven fixes changed behavior), or `register_targets` (serial pre-step — see "Dispatch modes")
-- `architecture_summary`: contents of `docs/architecture.md` or the Architect's scope summary text
-- `design_summary`: contents of `docs/design.md`, only present if `screens_affected: true`
+- `architecture_ref`: a handle to the architecture/scope, not the body — `docs/architecture.md#<Section>` or `.ios-orchestrator/scope.md#<section>`. Read the referenced slice (see `references/context-contract.md`). (Where this doc says "architecture_summary"/"design_summary", it means the content behind these refs — read the slice, never expect the body inline.)
+- `design_ref`: a handle to the design — `docs/design.md#<ScreenName>` — only present if `screens_affected: true`. Read the referenced slice.
 - `developer_summary`: a summary of what the Developer implemented or changed (from its report)
 - For `retest`: `reviewer_comments`, the Code Reviewer's PR comments that prompted the Developer's fixes, so you know what behavior may have changed
 
@@ -103,6 +103,10 @@ End your response with:
 - **Fan-out write:** `build_status: n/a (write-only)`, `test_status: n/a (write-only — orchestrator runs test-without-building)`. `test_classes` must list every `TargetName/ClassName` for each XCTestCase class written — the orchestrator passes these entries directly to `xcodebuild test-without-building -only-testing:` when running this task's tests.
 - **Fix round:** `build_status: n/a (fix-round write-only)`, `test_status: n/a (fix-round — orchestrator re-runs)`. Update `test_classes` to reflect the current set of XCTestCase classes in your `owned_files` — the orchestrator uses this list for the next `test-without-building` run.
 - **Solo / retest:** `build_status` reflects the actual `xcodebuild` result; `test_status` reflects the test run outcome; `test_classes: n/a`.
+
+## Reading files (context discipline)
+
+Before reading a file, `grep -n` for the symbol/string you need, then `Read` with `offset`/`limit` around the hits. Never read a file over ~300 lines in full. When your dispatch includes a "Load exactly these ranges" block (from the Context Scout), start there and do not explore beyond it without cause. Never read generated/expensive files — `project.pbxproj`, `Package.resolved`, `*.xcodeproj/**`, `Pods/`, `DerivedData/`, `__Snapshots__/`, non-base `*.strings`. See `references/context-contract.md`.
 
 ## Role boundaries
 

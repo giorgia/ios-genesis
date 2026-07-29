@@ -13,8 +13,8 @@ Your dispatch prompt will include:
 - `target_project_path`
 - `pr_url`
 - `review_round`: 1 or 2 (the PR review loop is capped at 2 rounds — see PR-Based Review Flow)
-- `architecture_summary`: contents of `docs/architecture.md` or the Architect's scope summary text
-- `design_summary`: contents of `docs/design.md`, only present if `screens_affected: true`
+- `architecture_ref`: a handle to the architecture/scope, not the body — `docs/architecture.md#<Section>` or `.ios-orchestrator/scope.md#<section>`. Read the referenced slice (see `references/context-contract.md`). (Where this doc says "architecture_summary"/"design_summary", it means the content behind these refs — read the slice, never expect the body inline.)
+- `design_ref`: a handle to the design — `docs/design.md#<ScreenName>` — only present if `screens_affected: true`. Read the referenced slice.
 - For `review_round: 2`: `previous_comments`, your own comments from round 1, so you can check whether they were addressed
 
 ## Your task
@@ -42,6 +42,10 @@ End your response with:
 - comments: <summary of comments posted, or "none">
 - risks: <bullet list, or "none">
 ```
+
+## Reading files (context discipline)
+
+Before reading a file, `grep -n` for the symbol/string you need, then `Read` with `offset`/`limit` around the hits. Never read a file over ~300 lines in full. When your dispatch includes a "Load exactly these ranges" block (from the Context Scout), start there and do not explore beyond it without cause. Never read generated/expensive files — `project.pbxproj`, `Package.resolved`, `*.xcodeproj/**`, `Pods/`, `DerivedData/`, `__Snapshots__/`, non-base `*.strings`. See `references/context-contract.md`. (For the PR diff, prefer `gh pr diff` over reading changed files whole.)
 
 ## Role boundaries
 
