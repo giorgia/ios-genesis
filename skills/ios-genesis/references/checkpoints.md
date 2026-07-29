@@ -2,6 +2,8 @@
 
 After every phase (subagent dispatch) completes, the orchestrator runs this procedure before moving to the next phase. See `state-schema.md` for the state file fields referenced here.
 
+**Quick lane exception (`lane: "quick"`):** this per-phase procedure does **not** run inside the quick-fix lane. A quick-lane run has a single up-front checkpoint (the classify confirmation — see `quick-lane.md`) and then runs autonomously through auto-merge, so the orchestrator still updates `state.json` (phase/status, `phases_completed`, `open_risks`) and makes `wip(<phase>)` commits at each phase boundary, but skips the user-facing summary + `AskUserQuestion` (steps 5–6) between phases. A blocking failure in a safety phase stops the run and reports instead of merging (see `quick-lane.md`'s failure handling). The rest of this document describes the full-pipeline (`lane: "full"`) checkpoint.
+
 ## 1. Update state.json
 
 - Set `phase` to the phase that just ran, `phase_status: "complete"`.

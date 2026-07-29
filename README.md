@@ -67,6 +67,14 @@ Phases execute their slice of the graph in **waves** — up to 3 tasks at a time
 
 Supporting changes: a new **init-time git model** (repo, `.gitignore`, and a working branch exist before the first agent runs; every checkpoint makes a `wip(<phase>)` commit, so every phase has a baseline and resume is exact), and a **debug-only screen router** (`-ios-genesis-screen <Name>`, compiled behind `#if DEBUG`) that lets each visual verifier launch directly into the screen its task built instead of only seeing the launch screen.
 
+## 0.6.0 — the quick-fix lane
+
+Not every change needs nine phases. A one-line bug fix used to walk the same architect → designer → developer → verifier → tester → reviewer → merge → release pipeline as a whole new feature — paying full price in tokens and round-trips for a trivial edit.
+
+`feature_addition` runs now start with a **cheap classification pass**: the architect does a quick survey (no architecture doc, no task graph) and labels the change `small` or `large`. A `large` change runs the full pipeline exactly as before. A `small` change enters the **quick lane**: a single up-front confirmation ("this is small — here's the plan; proceed?"), then it runs autonomously — implement → test the changed files → single-pass code review → PR → **auto-merge** — skipping the UI designer, release manager, fan-out waves, and all the intermediate checkpoints. Visual verification runs only if the change actually touches a screen. If you judge the change bigger than "small" at the confirmation, one answer drops it back onto the full pipeline; if any safety phase fails (build, tests, review), the lane stops and reports instead of merging.
+
+`new_app` is always "large" and untouched. The lane's reference doc loads only on quick-lane runs, so it adds zero overhead to normal runs.
+
 ## Field-tested
 
 The pipeline was validated end-to-end against a real GitHub repository: a counter app went from interview to squash-merged PR to release checklist across every phase. The dry run wasn't a demo — it was designed to find failures, and it found four real ones that are now fixed:

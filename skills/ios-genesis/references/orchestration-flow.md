@@ -2,6 +2,15 @@
 
 This is the phase sequence the orchestrator follows once it has determined the mode (`new_app` or `feature_addition`) and initialized/loaded `state.json` (see `state-schema.md`). State initialization also establishes the git model — the repo, the `.ios-orchestrator/`-ignoring `.gitignore`, the initial commit, and the working branch all exist before the Architect ever runs, and all run commits land on the working branch until `merge`; the procedure lives in `state-schema.md`'s Initialization section. After every phase, run the full checkpoint procedure in `checkpoints.md` (which includes the scope check from `role-boundaries.md`) before moving to the next phase.
 
+## Pre-step (`feature_addition` only): classification
+
+Before the Step 0 interview, a `feature_addition` run is classified into the **quick-fix lane** or the **full pipeline** — see `quick-lane.md` for the full procedure. The orchestrator dispatches `ios-architect` with `dispatch_type: classify` (a cheap survey that returns `size`/`scope`/`screens_affected`/`estimated_owned_files`, writes no file, builds no task graph):
+
+- `size: "small"` → enter the quick lane (`quick-lane.md`): the slim single-checkpoint confirmation below replaces the full Step 0 interview, and the run follows the quick-lane sequence, not the phase list in this document. Persist `lane: "quick"`.
+- `size: "large"` → run the normal Step 0 interview and the full `feature_addition` sequence below. Persist `lane: "full"`.
+
+`new_app` skips classification entirely (always `lane: "full"`) and proceeds straight to Step 0.
+
 ## Step 0 (both modes): Orchestrator interview
 
 The orchestrator (running in the user's main session) invokes the `superpowers:brainstorming` skill itself to interview the user about what's being built/changed:
@@ -83,6 +92,8 @@ If `target_project_path` exists, is non-empty, and contains no recognizable Xcod
 
 ## Feature addition
 (`.ios-orchestrator/state.json` exists, OR the project exists with no state file - see "Existing non-orchestrator project" below)
+
+This nine-phase sequence is the **full-pipeline** path (`lane: "full"`). A `feature_addition` classified `small` at the pre-step runs the shorter quick-lane sequence in `quick-lane.md` instead; the steps below apply once `lane: "full"` (either classified `large`, or the user chose "treat as a larger change" at the quick-lane checkpoint).
 
 1. **architect**: dispatch `ios-architect` with `mode: feature_addition`, `target_project_path`, `interview_output`, and - if `design_mode: "bring_your_own"` was set in step 0 - `design_sources` (with an instruction to review them before scoping the change; see `agents/ios-architect.md`). It does a codebase survey and returns a scope summary (no file written) plus `screens_affected` and the task graph — validate and persist the graph per "Task graph and waves" above before the checkpoint. Checkpoint persists the scope summary as `architecture_summary` in `state.json` (see `checkpoints.md`), since no file is written and the Architect has no memory.
 2. **ui_designer**: only if `screens_affected: true` - same as new app step 2 (including the solo-writes / fan-out-returns split), but `architecture_summary` is `state.json`'s persisted scope summary text (not a file). Otherwise skip to step 3.
