@@ -132,6 +132,24 @@ Restart the session (or `/reload-plugins`), then run `/plugin` and confirm `ios-
 
 `project.pbxproj` alone can be 20k+ tokens and is never worth reading. See the "context contract" (v0.7.0) below.
 
+**Optional — interactive flow verification.** To let the visual verifier tap/type/swipe through flows instead of only checking the launch screen, connect [XcodeBuildMCP](https://github.com/cameroncooke/XcodeBuildMCP) **with its `ui-automation` workflow enabled** — it is off by default, and without it the pipeline degrades to structural verification:
+
+```json
+{
+  "mcpServers": {
+    "XcodeBuildMCP": {
+      "command": "npx",
+      "args": ["-y", "xcodebuildmcp@latest", "mcp"],
+      "env": {
+        "XCODEBUILDMCP_ENABLED_WORKFLOWS": "session-management,simulator,ui-automation"
+      }
+    }
+  }
+}
+```
+
+Restart the session, then confirm a `*__tap` tool is present. (XcodeBuildMCP drives the simulator through a bundled [AXe](https://github.com/cameroncooke/AXe) binary; you do not install it separately, and the pipeline will never install it for you.)
+
 ### Usage
 
 ```
@@ -150,7 +168,7 @@ Four design modes. Three are chosen at the first UI phase, since they produce *n
 
 Listed here because honest edges matter more than polish:
 
-- **In-screen interaction (opt-in).** When XcodeBuildMCP is connected, the visual verifier drives the app in the simulator — tapping, typing, and reading the UI to verify per-screen *flows* the UI Designer declares in `docs/design.md`, not just the launch screen. Flows that need real hardware (e.g. motion sensors) are tagged `device`, get a distinct `deferred_to_device` verdict, and are handed off to you for on-device confirmation at the checkpoint. Without XcodeBuildMCP, verification gracefully degrades to the structural launch-screen check.
+- **In-screen interaction (opt-in).** When XcodeBuildMCP is connected *with its `ui-automation` workflow enabled* (see Installation — it is off by default), the visual verifier drives the app in the simulator — tapping, typing, and reading the UI to verify per-screen *flows* the UI Designer declares in `docs/design.md`, not just the launch screen. Flows that need real hardware (e.g. motion sensors) are tagged `device`, get a distinct `deferred_to_device` verdict, and are handed off to you for on-device confirmation at the checkpoint. Without XcodeBuildMCP, verification gracefully degrades to the structural launch-screen check.
 - **XCTest, not Swift Testing.** The test engineer should default to Swift Testing (`@Test`/`#expect`) for unit tests.
 - **No scripted evals.** Validation was a manual (if adversarial) dry run; a headless eval harness that runs a fixed spec through the pipeline and asserts on artifacts, builds, and tests is planned.
 - **Uniform model routing.** Every agent runs on the same model; per-role routing (stronger for architecture/review, faster for mechanical fixes) is planned.
