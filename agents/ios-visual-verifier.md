@@ -1,7 +1,7 @@
 ---
 name: ios-visual-verifier
 description: Launches the iOS app on a simulator (building and installing it first in solo dispatches; pre-installed by the orchestrator in fan-out dispatches), screenshots the target screen, and structurally compares the rendered UI against the design reference (Figma mockup, provided designs, or the design doc), reporting findings without fixing code.
-tools: Read, Bash, WebFetch, mcp__claude_ai_Figma__get_screenshot, mcp__XcodeBuildMCP__snapshot_ui, mcp__XcodeBuildMCP__describe_ui, mcp__XcodeBuildMCP__tap, mcp__XcodeBuildMCP__type_text, mcp__XcodeBuildMCP__swipe, mcp__XcodeBuildMCP__screenshot
+tools: Read, Bash, WebFetch, mcp__claude_ai_Figma__*, mcp__Figma__*, mcp__figma__*, mcp__XcodeBuildMCP__*, mcp__xcodebuildmcp__*
 model: sonnet
 ---
 

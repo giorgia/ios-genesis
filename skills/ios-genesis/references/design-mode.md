@@ -19,7 +19,7 @@ Once the user selects "Continue to the next phase" at the Architect's checkpoint
 
 ## Before offering Figma
 
-Check whether the Figma MCP server is available (e.g. whether `mcp__claude_ai_Figma__*` tools are present in this session). If not, omit the "Figma" option from the question below (text-only and Claude Design remain available).
+Read the `figma` capability from the run's capability preflight (`references/capability-preflight.md`) — do **not** detect here. Offer the "Figma" option only when the preflight reported it `✔` (detected *and* reachable by the UI Designer's tool grant). Omit the option when it reported `—` (not connected) or `⚠` (connected under a server name no agent grant matches); text-only and Claude Design remain available in both cases, and the `⚠` case already carries its own explanation and fix from the preflight.
 
 ## The question
 
