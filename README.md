@@ -148,7 +148,17 @@ Restart the session (or `/reload-plugins`), then run `/plugin` and confirm `ios-
 }
 ```
 
-Restart the session, then confirm a `*__tap` tool is present. (XcodeBuildMCP drives the simulator through a bundled [AXe](https://github.com/cameroncooke/AXe) binary; you do not install it separately, and the pipeline will never install it for you.)
+Restart the session. You don't need to verify by hand — every run opens with a **capability preflight** that reports what it found:
+
+```
+Capabilities for this run
+  ✔ XcodeBuildMCP   snapshot_ui + tap detected — interactive flow verification ON
+  — Figma           not connected — Figma design mode unavailable
+```
+
+(XcodeBuildMCP drives the simulator through a bundled [AXe](https://github.com/cameroncooke/AXe) binary; you do not install it separately, and the pipeline will never install it for you.)
+
+**A note on MCP server names.** Detection matches on the tool's *basename* (`tap`, `snapshot_ui`, `use_figma`), so it works no matter what you named the server. Granting the tools to a subagent is the part that can't be wildcarded — `tools:` frontmatter accepts `mcp__<server>__*` but has no "any server" form. The designer and verifier grant the common names (`XcodeBuildMCP`, `claude_ai_Figma`, `Figma`, `figma`, plus lowercase variants). If you register a server under something else — a UUID, say — the preflight reports it as `⚠ detected but not granted`, names your actual prefix, and tells you to either rename the server or add the prefix to that agent's `tools:` line. It degrades loudly instead of silently.
 
 ### Usage
 

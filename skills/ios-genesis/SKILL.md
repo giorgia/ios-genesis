@@ -18,6 +18,7 @@ You are the orchestrator for an iOS app development pipeline. You run in the use
 
 Load these as needed during the run - don't read them all upfront:
 
+- `references/capability-preflight.md` - detecting optional MCP integrations (Figma, XcodeBuildMCP) by tool basename at run start, and reporting what this run can and cannot do
 - `references/state-schema.md` - `.ios-orchestrator/state.json` schema, initialization, and resuming/drift-detection
 - `references/checkpoints.md` - the per-phase checkpoint procedure (update state, scope check, summarize, ask Continue/Make changes/Stop)
 - `references/role-boundaries.md` - role summary table and the scope-check details used by checkpoints
@@ -32,7 +33,7 @@ Load these as needed during the run - don't read them all upfront:
 
 ## Top-level control flow
 
-1. **Resolve `target_project_path`** from the first argument.
+1. **Resolve `target_project_path`** from the first argument, then **run the capability preflight** (`references/capability-preflight.md`): detect the optional MCP integrations by tool **basename** (never by server prefix — the prefix is user-config and unguessable), compare each against the agent `tools:` grants, and print the capability block before anything else. This runs on every invocation, including resumes, since the user's MCP config may have changed between sessions. Persist the result as `capabilities` in `state.json`; `design-mode.md` and `interactive-verification.md` read it instead of detecting for themselves.
 
 2. **Determine mode and initial state:**
    - If `<target_project_path>/.ios-orchestrator/state.json` exists: this is a **resume**. Read it and follow `state-schema.md`'s "Resuming" procedure (drift check via `git rev-parse HEAD` vs `last_commit_sha`), then jump to the recorded `phase` in `orchestration-flow.md` and continue from there - **skip step 3 (interview)**, since `interview_output` was already captured and acted on in the prior run.

@@ -4,11 +4,9 @@ Lets `ios-visual-verifier` drive the app in the simulator (tap/type/read-UI) to 
 
 ## Detection (orchestrator, at visual_verification phase start)
 
-Check the session tool list for the XcodeBuildMCP UI-automation tools — a **read tool** (a name ending in `__snapshot_ui`, or `__describe_ui` on older XcodeBuildMCP releases) **and** an **act tool** (a name ending in `__tap`). The registration prefix is set by the user's MCP config and is matched as a substring, exactly as `design-mode.md` matches the Figma prefix `mcp__claude_ai_Figma__*`. Both halves must be present: XcodeBuildMCP ships UI automation as a separate `ui-automation` workflow that is **off by default**, so a session can expose the simulator tools (`build_run_sim`, `screenshot`, …) and even `snapshot_ui` while `tap`/`type_text`/`swipe` are absent. Record which read-tool name matched and pass it into the dispatch as `ui_read_tool`, so the verifier calls the name that actually exists.
+Detection happens **once per run, at the capability preflight** (`references/capability-preflight.md`), not at this phase. Read its `ui_read` and `ui_act` results: `interactive: true` requires both, and the verifier dispatch carries `ui_read_tool` set to the full tool name the preflight actually matched (`snapshot_ui`, or `describe_ui` on older XcodeBuildMCP releases), so the verifier calls a name that exists. Subagents inherit the session's MCP tools, so a detected tool is callable — *provided* the verifier's `tools:` grant covers the server's registered name, which is the `⚠` case the preflight reports.
 
-If both are present, pass `interactive: true` into every verifier dispatch this phase; else `interactive: false`. Subagents inherit the session's MCP tools, so the verifier can call them whenever the orchestrator detects them.
-
-When detection fails, the checkpoint note names the fix: enable the workflow by adding `"env": {"XCODEBUILDMCP_ENABLED_WORKFLOWS": "session-management,simulator,ui-automation"}` to the XcodeBuildMCP entry in the MCP config, then restart the session.
+Both halves must be present: XcodeBuildMCP ships UI automation as a separate `ui-automation` workflow that is **off by default**, so a session can expose the simulator tools (`build_run_sim`, `screenshot`, …) and even `snapshot_ui` while `tap`/`type_text`/`swipe` are absent. That is the common cause of `interactive: false`, and the fix the preflight prints is: add `"env": {"XCODEBUILDMCP_ENABLED_WORKFLOWS": "session-management,simulator,ui-automation"}` to the XcodeBuildMCP entry in the MCP config, then restart the session.
 
 ## Flow declaration (`design.md`, authored by the UI Designer)
 
