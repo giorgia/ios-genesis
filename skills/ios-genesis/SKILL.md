@@ -18,7 +18,7 @@ You are the orchestrator for an iOS app development pipeline. You run in the use
 
 Load these as needed during the run - don't read them all upfront:
 
-- `references/capability-preflight.md` - detecting optional MCP integrations (Figma, XcodeBuildMCP) by tool basename at run start, and reporting what this run can and cannot do
+- `references/capability-preflight.md` - detecting optional MCP integrations (Figma, XcodeBuildMCP) by tool basename at run start, a read-only version check that prompts when a newer ios-genesis is published, and reporting what this run can and cannot do
 - `references/state-schema.md` - `.ios-orchestrator/state.json` schema, initialization, and resuming/drift-detection
 - `references/checkpoints.md` - the per-phase checkpoint procedure (update state, scope check, summarize, ask Continue/Make changes/Stop)
 - `references/role-boundaries.md` - role summary table and the scope-check details used by checkpoints
@@ -33,13 +33,13 @@ Load these as needed during the run - don't read them all upfront:
 
 ## Top-level control flow
 
-1. **Resolve `target_project_path`** from the first argument, then **run the capability preflight** (`references/capability-preflight.md`): detect the optional MCP integrations by tool **basename** (never by server prefix — the prefix is user-config and unguessable), compare each against the agent `tools:` grants, and print the capability block before anything else. This runs on every invocation, including resumes, since the user's MCP config may have changed between sessions. Persist the result as `capabilities` in `state.json`; `design-mode.md` and `interactive-verification.md` read it instead of detecting for themselves.
+1. **Resolve `target_project_path`** from the first argument, then **run the capability preflight** (`references/capability-preflight.md`): detect the optional MCP integrations by tool **basename** (never by server prefix — the prefix is user-config and unguessable), compare each against the agent `tools:` grants, run the read-only version check (prompt with the update recipe if a newer ios-genesis is published — never update the plugin mid-run), and print the capability block before anything else. This runs on every invocation, including resumes, since the user's MCP config may have changed between sessions. Persist the result as `capabilities` in `state.json`; `design-mode.md` and `interactive-verification.md` read it instead of detecting for themselves.
 
 2. **Determine mode and initial state:**
    - If `<target_project_path>/.ios-orchestrator/state.json` exists: this is a **resume**. Read it and follow `state-schema.md`'s "Resuming" procedure (drift check via `git rev-parse HEAD` vs `last_commit_sha`), then jump to the recorded `phase` in `orchestration-flow.md` and continue from there - **skip step 3 (interview)**, since `interview_output` was already captured and acted on in the prior run.
    - Else if `<target_project_path>` exists and contains an Xcode/SPM project but no state file: this is **feature addition, first run** (see `orchestration-flow.md`'s "Existing non-orchestrator project"). Before step 3, run the classification pre-step (`orchestration-flow.md`'s "Pre-step" / `quick-lane.md`): dispatch `ios-architect` with `dispatch_type: classify`. If it returns `size: "small"`, follow the **quick lane** in `quick-lane.md` (a single confirmation checkpoint replaces the full step-3 interview, then implement → test → review → PR → auto-merge) and initialize `state.json` with `lane: "quick"`. Otherwise continue to step 3 and initialize with `mode: "feature_addition"`, `lane: "full"` per `state-schema.md` before dispatching the Architect.
    - Else (path doesn't exist, or exists but is empty/non-project): this is **new app, first run**. Continue to step 3, then initialize `state.json` with `mode: "new_app"`.
-   - State initialization also establishes the git model (init/ignore/branch); see `state-schema.md`'s Initialization.
+   - State initialization also establishes the git model (init/ignore/branch) and provisions a root `CLAUDE.md` when the project has none, so future sessions default to this pipeline; see `state-schema.md`'s Initialization.
 
 3. **Orchestrator interview**: invoke `superpowers:brainstorming` as described in `orchestration-flow.md`'s "Step 0", using `description` (the second argument) as the starting point for the conversation. The result is `interview_output`, passed to the Architect.
 

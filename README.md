@@ -89,6 +89,12 @@ v0.7.0 makes the orchestrator carry **handles, never bodies**, and gives workers
 
 It's a plumbing change: the output of a run is identical, the token cost is not. Module-split into SPM packages (finer isolation, faster builds) is the deferred v0.8.0.
 
+## 0.7.3 — sessions default back into the pipeline
+
+A project built with ios-genesis should keep being driven through ios-genesis, even in a brand-new Claude Code session that has none of the prior conversation's context. At initialization the orchestrator now provisions a root **`CLAUDE.md`** (only when the project doesn't already have one — an existing `CLAUDE.md` is never touched) recording that the project is ios-genesis-managed and that new feature/build/change/fix/release requests should be routed through the `ios-genesis` skill by default unless you say otherwise. Unlike the gitignored `.ios-orchestrator/` state dir, this file is committed and ships with the repo, so every future session reads it on open. It's orchestrator bookkeeping, exempt from the scope check like the `.gitignore` init append.
+
+The run-start **capability preflight** also gained a read-only **version check**: it compares the installed plugin against the latest published version and, if you're behind, prints the update recipe (`claude plugin marketplace update ios-orchestrator` → `claude plugin update ios-genesis@ios-orchestrator` → restart) before proceeding. It's advisory only — it never updates the plugin itself (that needs a restart) and never blocks the run.
+
 ## Field-tested
 
 The pipeline was validated end-to-end against a real GitHub repository: a counter app went from interview to squash-merged PR to release checklist across every phase. The dry run wasn't a demo — it was designed to find failures, and it found four real ones that are now fixed:

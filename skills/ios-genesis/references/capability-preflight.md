@@ -31,6 +31,25 @@ The preflight must therefore compare detection against the grants and report tha
 - `ios-ui-designer`: `mcp__claude_ai_Figma__*`, `mcp__Figma__*`, `mcp__figma__*`
 - `ios-visual-verifier`: the Figma patterns above, plus `mcp__XcodeBuildMCP__*`, `mcp__xcodebuildmcp__*`
 
+## Version check — prompt when a newer ios-genesis is published
+
+The preflight also checks whether the running plugin is behind the latest published version, so a stale install surfaces while the user is still at the keyboard rather than shipping outdated behavior silently. This is a **read-only check that only prompts — it never updates the plugin** (a plugin update requires a session restart, so it cannot be applied mid-run).
+
+Steps (best-effort; if any command is unavailable, errors, or the machine is offline, skip the check silently — it never blocks a run):
+
+1. Read the **installed** version from `claude plugin list` (the `ios-genesis` row).
+2. Refresh the marketplace catalog with `claude plugin marketplace update ios-orchestrator` — this updates only the local catalog metadata, **not** the installed plugin — then read the **latest advertised** `ios-genesis` version from that catalog.
+3. Compare as semver. If latest > installed, add an `↑` line to the capability block naming both versions and the update recipe:
+
+```
+  ↑ ios-genesis     0.7.3 installed, 0.8.0 available — update with:
+                      claude plugin marketplace update ios-orchestrator
+                      claude plugin update ios-genesis@ios-orchestrator
+                    then restart the session. (This run continues on 0.7.3.)
+```
+
+Always use the **qualified** name `ios-genesis@ios-orchestrator` in the update command — the bare `claude plugin update ios-genesis` fails and installs nothing. The run then proceeds normally on the installed version; the check is advisory, and like every other preflight signal it never fails or blocks the run, and never runs the update itself.
+
 ## Output — report it at run start, not at the phase that needs it
 
 Print a short capability block before the Step 0 interview. The point is that a missing integration is visible **while the user is still at the keyboard deciding what to build**, not four phases later when the design or verification phase quietly degrades.
@@ -57,5 +76,5 @@ Persist the result to `state.json` as `capabilities` so a resumed run reports th
 
 ## What the preflight never does
 
-- It never installs, configures, or enables anything. It reports and tells the user the fix. (See the substitution prohibition in `interactive-verification.md`.)
+- It never installs, configures, or enables anything — including updating the ios-genesis plugin itself. It reports and tells the user the fix or the update recipe. (See the substitution prohibition in `interactive-verification.md`.)
 - It never fails a run. Every capability here is optional; absence degrades a phase, never blocks one.
