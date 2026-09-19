@@ -95,6 +95,13 @@ A project built with ios-genesis should keep being driven through ios-genesis, e
 
 The run-start **capability preflight** also gained a read-only **version check**: it compares the installed plugin against the latest published version and, if you're behind, prints the update recipe (`claude plugin marketplace update ios-orchestrator` → `claude plugin update ios-genesis@ios-orchestrator` → restart) before proceeding. It's advisory only — it never updates the plugin itself (that needs a restart) and never blocks the run.
 
+## 0.7.4 — robustness in fresh and cloud sessions
+
+Shaking out 0.7.3 against a cloud, issue-driven run surfaced two rough edges, both fixed here:
+
+- **Plugin-relative path resolution.** The orchestrator reads its own reference docs by paths like `references/orchestration-flow.md` — relative to the *skill's* directory, not the target project. In a cloud session with a drifting working directory those reads failed ("path didn't resolve"). `SKILL.md` now states the rule up front: keep the shell at the target project root (never `cd` into `.ios-orchestrator/`), the docs are relative to the skill dir, and if a read fails, locate the skill dir under `~/.claude/plugins` and use an absolute path. It also reiterates that `agents/` specialists are *dispatched by name* via the `Agent` tool — never read as files.
+- **Clone-safe `CLAUDE.md`, honest about the cloud.** The `CLAUDE.md` provisioned at init no longer points at the gitignored `.ios-orchestrator/` dir as its "this is an ios-genesis project" marker — that dir is absent in a fresh clone, so the committed `CLAUDE.md` is itself the durable signal. It also spells out the expected fallback: if the `ios-genesis` skill isn't available in the current session (cloud/CI, or a machine without the plugin), work the request directly rather than trying to route through a skill that isn't there.
+
 ## Field-tested
 
 The pipeline was validated end-to-end against a real GitHub repository: a counter app went from interview to squash-merged PR to release checklist across every phase. The dry run wasn't a demo — it was designed to find failures, and it found four real ones that are now fixed:
@@ -188,6 +195,7 @@ Listed here because honest edges matter more than polish:
 - **XCTest, not Swift Testing.** The test engineer should default to Swift Testing (`@Test`/`#expect`) for unit tests.
 - **No scripted evals.** Validation was a manual (if adversarial) dry run; a headless eval harness that runs a fixed spec through the pipeline and asserts on artifacts, builds, and tests is planned.
 - **Uniform model routing.** Every agent runs on the same model; per-role routing (stronger for architecture/review, faster for mechanical fixes) is planned.
+- **Per-machine plugin install.** ios-genesis is installed per user/machine — it does not travel with the repo. Cloud, CI, and fresh-clone sessions won't have it unless the plugin is provisioned when that session is created (the local-path marketplace is not reachable from the cloud; use the GitHub source there). The committed `CLAUDE.md` (added to new projects at init) records that a project is ios-genesis-managed and asks sessions to prefer the pipeline, but it can't *install* the plugin — where the plugin is absent, the right move is to work the request directly.
 
 ## License
 
