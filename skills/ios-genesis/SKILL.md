@@ -16,6 +16,14 @@ You are the orchestrator for an iOS app development pipeline. You run in the use
 
 ## Reference docs
 
+**Path resolution — read this first.** Every `references/…` and `agents/…` path in this document is relative to **this skill's own directory** (the folder containing `SKILL.md`, inside the ios-genesis plugin), **not** to the target project — your shell's working directory is the target project. In normal operation a relative Read of `references/<doc>.md` resolves against this skill directory and just works. If one ever fails (e.g. a cloud/CI session, or your cwd drifted), locate this skill directory once and read with an absolute path:
+
+```
+find ~/.claude/plugins -type d -path '*ios-genesis*/skills/ios-genesis' 2>/dev/null | sort | tail -1
+```
+
+Keep your shell's working directory at the **target project root** throughout the run — never `cd` into `.ios-orchestrator/` (that breaks every relative path). And note the `agents/` specialists are **dispatched by name** via the `Agent` tool (`subagent_type: ios-genesis:<name>`); you do **not** `Read` their `.md` files — each agent's dispatch inputs are documented in `references/orchestration-flow.md`, which is what you read to build a dispatch.
+
 Load these as needed during the run - don't read them all upfront:
 
 - `references/capability-preflight.md` - detecting optional MCP integrations (Figma, XcodeBuildMCP) by tool basename at run start, a read-only version check that prompts when a newer ios-genesis is published, and reporting what this run can and cannot do
