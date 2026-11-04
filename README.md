@@ -22,7 +22,7 @@ A single agent asked to "build an app" mixes concerns: it designs while implemen
 | `ios-visual-verifier` | Simulator install/launch, launch-screen screenshots, structural comparison against the design | Editing files, committing, fixing its own findings |
 | `ios-test-engineer` | Test code, running the suite | Touching app code (bugs get escalated, not patched) |
 | `ios-code-reviewer` | PR review comments and verdicts | Pushing fixes itself |
-| `ios-release-manager` | `docs/release-checklist.md` from project state | Editing the project it audits |
+| `ios-release-manager` | `docs/release-checklist.md`; in release runs, Release-archive audits, store copy, ASO and screenshots | Editing the project it audits; any upload, App Store Connect write or submission |
 
 Every agent is dispatched fresh with zero memory. The orchestrator passes each one everything it needs — prior artifacts, summaries, user feedback — and receives a structured report back. No shared context means no context pollution, and every handoff is an explicit, inspectable contract.
 
@@ -87,13 +87,25 @@ v0.7.0 makes the orchestrator carry **handles, never bodies**, and gives workers
 - **Search before read** — every worker greps first and reads with `offset`/`limit`; never a whole large file.
 - **Deny list** — expensive generated files are refused (see the install snippet above).
 
-It's a plumbing change: the output of a run is identical, the token cost is not. Module-split into SPM packages (finer isolation, faster builds) is the deferred v0.8.0.
+It's a plumbing change: the output of a run is identical, the token cost is not. Module-split into SPM packages (finer isolation, faster builds) is deferred to a later release.
 
 ## 0.7.3 — sessions default back into the pipeline
 
 A project built with ios-genesis should keep being driven through ios-genesis, even in a brand-new Claude Code session that has none of the prior conversation's context. At initialization the orchestrator now provisions a root **`CLAUDE.md`** (only when the project doesn't already have one — an existing `CLAUDE.md` is never touched) recording that the project is ios-genesis-managed and that new feature/build/change/fix/release requests should be routed through the `ios-genesis` skill by default unless you say otherwise. Unlike the gitignored `.ios-orchestrator/` state dir, this file is committed and ships with the repo, so every future session reads it on open. It's orchestrator bookkeeping, exempt from the scope check like the `.gitignore` init append.
 
 The run-start **capability preflight** also gained a read-only **version check**: it compares the installed plugin against the latest published version and, if you're behind, prints the update recipe (`claude plugin marketplace update ios-orchestrator` → `claude plugin update ios-genesis@ios-orchestrator` → restart) before proceeding. It's advisory only — it never updates the plugin itself (that needs a restart) and never blocks the run.
+
+## 0.8.0 — release runs, up to (not including) submission
+
+Shipping Cadenza 3.0.0 took a lot of hand orchestration past the old release-manager checklist: App Store Connect API sync of text, review notes and screenshots, screenshots for iPhone, iPhone Duo and the header/search creatives, an ASO keyword pass, an upgrade test that caught a SwiftData data-loss bug, Release-archive checks, and a build upload that failed on signing permissions. `/ios-genesis <path> release [<version>]` now does all of it as a **release run** (`skills/ios-genesis/references/release-flow.md`):
+
+intake (version, positioning, blocking issues; `release/<version>` from the latest main) → version bump (app and every extension together) → **Release-archive audit** (versions, signing, entitlements, a privacy manifest per bundle, `strings` for DEBUG routes, required-reason APIs per target, network code) → **upgrade check** (previous release installed with real data, the new build installed over it) → full suite, with failures re-run on clean main to separate regressions from pre-existing ones → store copy, review notes, privacy-policy and claims checks, ASO → screenshots → release PR → App Store Connect sync → build upload → hand-off.
+
+- **Gates.** Writing to App Store Connect, changing signing in your developer account, uploading the build, attaching it, merging and tagging each need your explicit yes for that act. **Nothing submits for review**: there is no code path for it, and the run ends by telling you to submit.
+- **Release preflight** (`release-preflight.md`) checks, before anything is archived, what blocked the 3.0.0 upload: the API key's role (cloud signing needs an Admin key) and whether every App ID, extensions included, has every capability its entitlements use. A local export (destination `export`) proves signing before the upload gate; Xcode Organizer is the documented fallback.
+- **Scripts** in `skills/ios-genesis/scripts/`: `asc_sync.py` (App Store Connect API; dry run by default; `check`, `preflight`, `plan`, `sync`, `builds`, `attach-build`), `release_audit.py`, `aso_rank.py` (public iTunes Search API), and a screenshot pipeline **template** (`capture.sh` through the DEBUG router, `compose.py` from a `shots.json`) that each project copies and styles. Credentials come only from `ASC_KEY_PATH`, `ASC_KEY_ID`, `ASC_ISSUER_ID` in the environment; nothing stores them.
+
+Not yet exercised end to end: the scripts' read-only paths were run against Cadenza's real archive, metadata and raws, but `asc_sync.py`'s write paths and the release flow as a whole haven't run against App Store Connect from this plugin yet.
 
 ## Field-tested
 

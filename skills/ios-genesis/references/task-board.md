@@ -13,7 +13,7 @@ When the orchestrator validates and persists the Architect's graph:
 
 ## Single-task graphs
 
-When the graph contains exactly one task (sequential flow), the orchestrator instead `TaskCreate`s one board entry per **phase** in pipeline order (architect → ui_designer → developer → visual_verification → test_engineer → pr_creation → code_review → merge → release_manager), so every run gets the live view. Apply the same dispatch/report/failure rules below, keyed on phase rather than task.
+When the graph contains exactly one task (sequential flow), the orchestrator instead `TaskCreate`s one board entry per **phase** in pipeline order (architect → ui_designer → developer → visual_verification → test_engineer → pr_creation → code_review → merge → release_manager), so every run gets the live view. Release runs do the same with their phases (`release_intake` → … → `release_handoff`, `release-flow.md`), and mark each gate on its phase's entry while it waits for the user. Apply the same dispatch/report/failure rules below, keyed on phase rather than task.
 
 ## On dispatch
 

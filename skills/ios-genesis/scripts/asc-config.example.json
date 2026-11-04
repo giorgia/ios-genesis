@@ -1,0 +1,24 @@
+{
+  "_comment": "Copy to <repo>/scripts/asc/asc-config.json. No secrets here: the API key, key id and issuer id come only from ASC_KEY_PATH, ASC_KEY_ID and ASC_ISSUER_ID in the environment.",
+  "app_id": "1234567890",
+  "platform": "IOS",
+  "metadata": "docs/appstore-metadata.md",
+  "review_notes": "docs/app-review-notes.md",
+  "screenshots_dir": "docs/appstore-screenshots",
+  "screenshot_glob": "*.png",
+  "primary_locale": "en-US",
+  "locales": {
+    "en-US": {"heading": "## en-US", "screenshots": "v1-en-US"},
+    "es-MX": {"heading": "## es-MX", "screenshots": "v1-es-MX"}
+  },
+  "slots": {
+    "APP_IPHONE_67": ["6.9-inch-1320x2868", [1320, 2868]],
+    "APP_IPHONE_65": ["6.7-inch-1284x2778", [1284, 2778]],
+    "APP_IPHONE_61": ["6.3-inch-1206x2622", [1206, 2622]]
+  },
+  "banned_terms": ["tiktok", "instagram", "youtube", "android", "google play"],
+  "targets": [
+    {"bundle_id": "com.example.MyApp", "entitlements": "MyApp/MyApp.entitlements"},
+    {"bundle_id": "com.example.MyApp.ShareExtension", "entitlements": "MyAppShareExtension/MyAppShareExtension.entitlements"}
+  ]
+}

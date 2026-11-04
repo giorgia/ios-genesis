@@ -12,7 +12,7 @@ Each subagent's own prompt (`agents/*.md`) includes its role boundaries. This do
 | ios-test-engineer | Test code, running tests | App/source code (raise apparent app bugs as `open_risks`) |
 | ios-visual-verifier | Simulator build/install/launch, screenshots, structural comparison against the design reference | Editing any source/project file; committing; fixing findings (those go through the Developer) |
 | ios-code-reviewer | PR review comments and approval | Pushing code changes itself - fixes go through Developer/Test Engineer |
-| ios-release-manager | Reading versioning/Info.plist/asset catalog info to write `docs/release-checklist.md` | App logic, views, tests, and editing `Info.plist`/project settings/asset catalogs directly (those are read-only inputs; gaps become action items in the checklist) |
+| ios-release-manager | `docs/release-checklist.md`; in release runs also Release-archive audits, `docs/appstore-metadata.md`, `docs/app-review-notes.md`, `docs/aso-plan.md`, `docs/appstore-screenshots/**`, `scripts/asc/asc-config.json`; read-only App Store Connect calls | App logic, views, tests, editing `Info.plist`/entitlements/privacy manifests/project settings (gaps become findings for the developer), and every outward act: uploads, App Store Connect writes, signing changes, push/merge/tag, submission |
 
 ## Scope check
 
@@ -43,6 +43,15 @@ The method depends on whether the phase fans out across multiple tasks:
 | test_engineer | Test target files (`*Tests.swift` or equivalent), plus `project.yml`/`Package.swift` edits and the regenerated `.xcodeproj` when registering a newly created test target (either mode - a `feature_addition` project without UI tests legitimately gains a target too). **Fan-out (multi-task graphs):** each wave task may only touch its `owned_files` (the task's assigned test directory, e.g. `<AppName>Tests/Tasks/<task_id>/`); `project.yml` edits are restricted to the serial registration pre-step. Attribution uses these test directories, not the graph's source `owned_files`. |
 | pr_creation | None — this phase pushes already-committed changes and opens a PR; `git status --porcelain` is expected to be clean. |
 | release_manager | `docs/release-checklist.md` only (reads `Info.plist`, project settings, and asset catalogs as inputs without modifying them, same as the `bring_your_own` `design_sources` carve-out above) |
+| release_intake | `scripts/asc/asc-config.json` (new, no secrets) |
+| version_bump | Version settings only: `project.yml`, the regenerated `.xcodeproj`, `Info.plist` version keys, `*.xcconfig` |
+| release_audit, release_tests, upgrade_check | `docs/release-checklist.md`; plus `developer` patterns for files an `address_release_finding` fix touched. Build products stay under gitignored `build/` |
+| store_assets | `docs/appstore-metadata.md`, `docs/app-review-notes.md`, `docs/aso-plan.md`, `docs/release-checklist.md`, `scripts/asc/asc-config.json` |
+| screenshots | `docs/appstore-screenshots/**` |
+| release_pr, asc_sync, build_upload | None locally (`git status --porcelain` clean); their effects are remote and gated |
+| release_handoff | `docs/release-checklist.md` |
+
+**Release runs, credentials:** any file containing an App Store Connect key, key id or issuer id (a `.p8`, an `AuthKey_*` name, or the values of `ASC_KEY_ID`/`ASC_ISSUER_ID`) in a diff is a violation in every phase — unstage it, never commit it, and raise it at the checkpoint.
 
 ### Violations
 
