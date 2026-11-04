@@ -307,8 +307,9 @@ def _words(text):
     return [w for w in re.split(r"[^\w']+", (text or "").lower()) if w]
 
 
-def check(cfg, quiet=False):
-    """Offline lint. Returns the list of blocking problems; warnings print only."""
+def check(cfg, quiet=False, screenshots=True):
+    """Offline lint. Returns the list of blocking problems; warnings print only.
+    screenshots=False skips the image checks (a --text-only sync never sends them)."""
     problems, warnings = [], []
     meta = parse_metadata(cfg)
     for loc, fields in meta.items():
@@ -344,7 +345,7 @@ def check(cfg, quiet=False):
     notes = parse_review_notes(cfg)
     if len(notes) > LIMITS["notes"]:
         problems.append(f"review notes are {len(notes)} > {LIMITS['notes']} characters")
-    for loc in cfg.locales:
+    for loc in (cfg.locales if screenshots else []):
         for dtype, (slot_dir, size) in cfg.slots.items():
             files = shots(cfg, loc, slot_dir, required=False)
             if not files:
@@ -403,8 +404,8 @@ def diff_line(field, cur, new):
 
 
 def sync(cfg, version_string, apply, text_only=False):
-    if check(cfg, quiet=True):
-        check(cfg)
+    if check(cfg, quiet=True, screenshots=not text_only):
+        check(cfg, screenshots=not text_only)
         sys.exit("Fix the blocking problems above first; nothing was sent.")
     meta = parse_metadata(cfg)
     print(f"Source: {cfg.metadata.relative_to(cfg.root)} — locales {', '.join(meta)}")
