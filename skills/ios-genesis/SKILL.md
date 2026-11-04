@@ -1,6 +1,6 @@
 ---
 name: ios-genesis
-description: Orchestrates a team of specialist subagents (architect, UI designer, developer, visual verifier, test engineer, code reviewer, release manager) to build a new iOS app or add a feature to an existing one, with per-phase user checkpoints, simulator-in-the-loop visual verification, and a GitHub PR review loop.
+description: Orchestrates a team of specialist subagents (architect, UI designer, developer, visual verifier, test engineer, code reviewer, release manager) to build a new iOS app, add a feature to an existing one, or prepare and upload a new App Store version (release run, stopping before submission), with per-phase user checkpoints, simulator-in-the-loop visual verification, and a GitHub PR review loop.
 ---
 
 # iOS Genesis
@@ -12,7 +12,7 @@ You are the orchestrator for an iOS app development pipeline. You run in the use
 `/ios-genesis <target-project-path> <description>`
 
 - `target-project-path`: absolute or relative path to the iOS project directory (may not exist yet, for a new app).
-- `description`: a short description of what to build or change - the starting point for the orchestrator interview (step 0).
+- `description`: a short description of what to build or change - the starting point for the orchestrator interview (step 0). A description whose first word is `release` (`/ios-genesis <path> release [<version>]`) starts a **release run** instead (`references/release-flow.md`).
 
 ## Reference docs
 
@@ -30,13 +30,18 @@ Load these as needed during the run - don't read them all upfront:
 - `references/quick-lane.md` - the lightweight quick-fix lane for small `feature_addition` changes (classify → one checkpoint → implement → test → review → PR → auto-merge)
 - `references/context-contract.md` - how context moves: the repo map (`symbols.txt`), the Context Scout, refs-not-bodies dispatches, search-before-read, and the deny list (the orchestrator carries handles, not bodies)
 - `references/task-board.md` - task board protocol for live pipeline visibility
+- `references/release-flow.md` - the release run: intake, version bump, Release-archive audit, upgrade check, full suite, store copy, screenshots, App Store Connect sync and build upload, with the user-approval gates (G1–G6) and no submission path
+- `references/release-preflight.md` - App Store Connect credentials (from the environment only), App ID capabilities and signing paths, checked before anything is archived
+
+Scripts used by the release run live in `scripts/` next to this file (`asc_sync.py`, `release_audit.py`, `aso_rank.py`, `screenshots/`) and templates in `templates/`; resolve them relative to this skill's directory. See `scripts/README.md`.
 
 ## Top-level control flow
 
 1. **Resolve `target_project_path`** from the first argument, then **run the capability preflight** (`references/capability-preflight.md`): detect the optional MCP integrations by tool **basename** (never by server prefix — the prefix is user-config and unguessable), compare each against the agent `tools:` grants, run the read-only version check (prompt with the update recipe if a newer ios-genesis is published — never update the plugin mid-run), and print the capability block before anything else. This runs on every invocation, including resumes, since the user's MCP config may have changed between sessions. Persist the result as `capabilities` in `state.json`; `design-mode.md` and `interactive-verification.md` read it instead of detecting for themselves.
 
 2. **Determine mode and initial state:**
-   - If `<target_project_path>/.ios-orchestrator/state.json` exists: this is a **resume**. Read it and follow `state-schema.md`'s "Resuming" procedure (drift check via `git rev-parse HEAD` vs `last_commit_sha`), then jump to the recorded `phase` in `orchestration-flow.md` and continue from there - **skip step 3 (interview)**, since `interview_output` was already captured and acted on in the prior run.
+   - If `description` starts with `release` (or reads as a release request and the user confirms one): this is a **release run** — follow `release-flow.md` from `release_intake` (or the recorded `phase` on resume), with `mode: "release"`, `lane: "release"`. If `state.json` already holds an unfinished release run for the same version, resume it (drift check as usual); otherwise initialize a fresh release state, moving any earlier run's record under `previous_runs` (`state-schema.md`). Skip classification and step 3; the intake questions replace the interview. The project must already exist.
+   - Else if `<target_project_path>/.ios-orchestrator/state.json` exists: this is a **resume** (a recorded `mode: "release"` resumes in `release-flow.md`). Read it and follow `state-schema.md`'s "Resuming" procedure (drift check via `git rev-parse HEAD` vs `last_commit_sha`), then jump to the recorded `phase` in `orchestration-flow.md` and continue from there - **skip step 3 (interview)**, since `interview_output` was already captured and acted on in the prior run.
    - Else if `<target_project_path>` exists and contains an Xcode/SPM project but no state file: this is **feature addition, first run** (see `orchestration-flow.md`'s "Existing non-orchestrator project"). Before step 3, run the classification pre-step (`orchestration-flow.md`'s "Pre-step" / `quick-lane.md`): dispatch `ios-architect` with `dispatch_type: classify`. If it returns `size: "small"`, follow the **quick lane** in `quick-lane.md` (a single confirmation checkpoint replaces the full step-3 interview, then implement → test → review → PR → auto-merge) and initialize `state.json` with `lane: "quick"`. Otherwise continue to step 3 and initialize with `mode: "feature_addition"`, `lane: "full"` per `state-schema.md` before dispatching the Architect.
    - Else (path doesn't exist, or exists but is empty/non-project): this is **new app, first run**. Continue to step 3, then initialize `state.json` with `mode: "new_app"`.
    - State initialization also establishes the git model (init/ignore/branch) and provisions a root `CLAUDE.md` when the project has none, so future sessions default to this pipeline; see `state-schema.md`'s Initialization.
@@ -45,11 +50,12 @@ Load these as needed during the run - don't read them all upfront:
 
 4. **Run the phase sequence.** For `lane: "quick"` runs, follow `quick-lane.md` (implement → test → visual-if-screens → single-pass review → PR → auto-merge). Otherwise run the full sequence in `orchestration-flow.md` for the determined mode (`new_app` or `feature_addition`), starting at `architect` (or at the resumed `phase`, if step 2 was a resume). Phases run their projections in waves (see `orchestration-flow.md`'s "Task graph and waves"); the orchestrator maintains the live task board per `task-board.md` throughout. After each phase, run the full checkpoint procedure from `checkpoints.md` before moving on.
 
-5. **Run completes** when the final phase's checkpoint (`release_manager` for `new_app`, or `merge`/`release_manager` for `feature_addition` - see `orchestration-flow.md`) is presented and the user does not choose to continue further (there is no next phase). Tell the user the run is complete and summarize the final state (PR merged, docs written, any remaining `open_risks`).
+5. **Run completes** when the final phase's checkpoint (`release_manager` for `new_app`, `merge`/`release_manager` for `feature_addition` - see `orchestration-flow.md` - or `release_handoff` for a release run, which ends with the user's submission steps) is presented and the user does not choose to continue further (there is no next phase). Tell the user the run is complete and summarize the final state (PR merged, docs written, any remaining `open_risks`).
 
 ## Notes
 
 - Subagents have no memory between dispatches - every dispatch includes the **handles** (file paths + section anchors) and minimal state the subagent needs (relevant `state.json` fields, `architecture_ref`/`design_ref` refs, user feedback for "Make changes first" re-dispatches, reviewer comments for review-loop re-dispatches), and the subagent reads its own slice. **Never embed file or doc bodies in a dispatch or in the orchestrator's own reasoning — the orchestrator carries handles, not bodies.** See `references/context-contract.md`.
 - **Context Scout:** before dispatching a *reads-existing-code* worker (every `feature_addition` worker, `test_engineer`, `code_review`, `integration`, and `address_visual`/`address_review` re-dispatches), first dispatch `ios-context-scout` with the task scope + `owned_files` + `symbols.txt`, then inject its returned ranges into the worker dispatch as a "Load exactly these ranges" block (see `references/context-contract.md`). Greenfield `foundation`/`screen` writes are not scouted.
 - Fan-out dispatches go out as concurrent `Agent` calls in one message; every dispatch still carries the handles the subagent needs (never bodies).
+- **Release gates:** in a release run, uploading a build, writing to App Store Connect, changing signing in the user's account, merging, and tagging each need the user's explicit yes for that act (`release-flow.md`, "Gates"); a checkpoint's Continue never counts. Never submit for review, release a version, or start a PPO test — those are always the user's. Never read, print or store App Store Connect credentials; scripts read `ASC_KEY_PATH`, `ASC_KEY_ID`, `ASC_ISSUER_ID` from the environment.
 - If the user chooses "Stop here" at any checkpoint, end the session normally - `state.json` is already up to date for a future `/ios-genesis <target_project_path> ...` invocation to resume.

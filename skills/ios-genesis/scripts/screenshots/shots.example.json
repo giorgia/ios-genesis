@@ -1,0 +1,56 @@
+{
+  "_comment": "Copy to <repo>/docs/appstore-screenshots/shots.json. Paths are relative to this file. Headline accent runs go in **double asterisks**.",
+  "colors": {"background": "#0A0B0D", "text": "#FFFFFF", "subline": "#BDBEC0",
+             "frame": "#1B1C21", "ring": "#2A2C33", "accent": "#00DFE8"},
+  "fonts": {"headline": {"path": "../../MyApp/Resources/Fonts/Display-VariableFont.ttf", "weight": 700},
+            "body": "../../MyApp/Resources/Fonts/Display-Regular.ttf",
+            "eyebrow": "../../MyApp/Resources/Fonts/Mono-Medium.ttf"},
+  "status_bar": {"crop_fraction": 0.062, "top_margin_fraction": 0.03},
+  "redact": {"pixel_size": 18, "blur_radius": 10},
+  "slots": [[1320, 2868, "6.9-inch-1320x2868"],
+            [1284, 2778, "6.7-inch-1284x2778"],
+            [1206, 2622, "6.3-inch-1206x2622"]],
+  "file_pattern": "myapp-{n:02d}.png",
+  "sets": {
+    "v1-en-US": {
+      "raw_dir": "raw/v1/en-US",
+      "shots": [
+        {"raw": "Home.png", "eyebrow": "New in 1.0", "headline": "Your reps **count** themselves",
+         "subline": "No watch. No tapping between sets."},
+        {"raw": "Library.png", "eyebrow": "Library", "headline": "Workouts for **every** day",
+         "subline": "Ready-made routines to start from.",
+         "redact": [[120, 1480, 640, 1540]]},
+        {"raw": "device/History.png", "eyebrow": "Progress", "headline": "See every week **add up**",
+         "subline": "Week, month and all-time history.", "strip_status_bar": false}
+      ]
+    },
+    "v1-es-MX": {
+      "raw_dir": "raw/v1/es-MX",
+      "shots": [
+        {"raw": "Home.png", "eyebrow": "Nuevo en 1.0", "headline": "Tus repeticiones **se cuentan** solas",
+         "subline": "Sin reloj. Sin tocar entre series."}
+      ]
+    },
+    "v1-en-US-duo-outer": {
+      "_comment": "iPhone Duo outer display: capture.sh --display primary. No API display type: upload by hand.",
+      "raw_dir": "raw/v1/duo", "out_dir": "v1-en-US", "strip_status_bar": false,
+      "slots": [[1398, 2034, "duo-outer-1398x2034"]],
+      "shots": [{"raw": "outer-Home.png", "eyebrow": "New in 1.0", "headline": "Your reps **count** themselves",
+                 "subline": "No watch. No tapping between sets."}]
+    },
+    "v1-en-US-duo-inner": {
+      "_comment": "iPhone Duo open display, wide pose: capture.sh --display primary-1 (ids can swap after folding; check the pixel size).",
+      "raw_dir": "raw/v1/duo", "out_dir": "v1-en-US", "strip_status_bar": false, "layout": "side", "derive": false,
+      "slots": [[2853, 2007, "duo-inner-2853x2007"]],
+      "shots": [{"raw": "inner-Home.png", "eyebrow": "New in 1.0", "headline": "Your reps **count** themselves",
+                 "subline": "No watch. No tapping between sets."}]
+    },
+    "creative-en-US": {
+      "_comment": "Product page header (21:9) and search result image (3:2), App Store Connect's Header and Search Results tab.",
+      "raw_dir": "raw/v1/en-US", "layout": "side", "derive": false,
+      "slots": [[3840, 1646, "header-3840x1646"], [3840, 2560, "search-3840x2560"]],
+      "shots": [{"raw": "Home.png", "file": "creative.png", "eyebrow": "New in 1.0",
+                 "headline": "Your reps **count** themselves", "subline": "No watch. No tapping between sets."}]
+    }
+  }
+}

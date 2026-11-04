@@ -2,7 +2,11 @@
 
 This is the phase sequence the orchestrator follows once it has determined the mode (`new_app` or `feature_addition`) and initialized/loaded `state.json` (see `state-schema.md`). State initialization also establishes the git model — the repo, the `.ios-orchestrator/`-ignoring `.gitignore`, the initial commit, and the working branch all exist before the Architect ever runs, and all run commits land on the working branch until `merge`; the procedure lives in `state-schema.md`'s Initialization section. After every phase, run the full checkpoint procedure in `checkpoints.md` (which includes the scope check from `role-boundaries.md`) before moving to the next phase.
 
-## Run start (both modes): capability preflight
+## Release runs
+
+`mode: "release"` runs a different phase sequence, defined entirely in `release-flow.md` (intake → version bump → Release audit → upgrade check → full suite → store assets → screenshots → release PR → App Store Connect sync → build upload → hand-off). It shares the capability preflight, checkpoints, state file, task board and PR review flow with the modes below, skips classification and Step 0, and adds the user-approval gates. Nothing below applies to it unless `release-flow.md` points here.
+
+## Run start (all modes): capability preflight
 
 Before the classification pre-step and before Step 0, the orchestrator runs the capability preflight (`references/capability-preflight.md`) and prints its capability block. Detection is by tool **basename**, never by server prefix. Its results are the sole input to the Figma option in `design-mode.md` and to `interactive: true|false` in `interactive-verification.md` — neither detects independently.
 
@@ -96,7 +100,7 @@ If `target_project_path` exists, is non-empty, and contains no recognizable Xcod
 6. **pr_creation**: see `pr-review-flow.md` (`branch_name: "feature/initial-implementation"`, including the no-GitHub-remote checkpoint if needed). The working branch already exists from initialization, so this phase is slimmed to remote setup, push, and PR opening. Checkpoint.
 7. **code_review**: see `pr-review-flow.md`'s review loop. Checkpoint.
 8. **merge**: see `pr-review-flow.md`. Checkpoint.
-9. **release_manager**: dispatch `ios-release-manager` with `target_project_path`, `architecture_summary`, `design_summary` (if applicable). It writes `docs/release-checklist.md`. Checkpoint. (This is the final phase - after this checkpoint, the run is complete.)
+9. **release_manager**: dispatch `ios-release-manager` with `dispatch_type: checklist`, `target_project_path`, `scripts_dir`, `architecture_summary`, `design_summary` (if applicable). It writes `docs/release-checklist.md` (readiness only: it uploads and publishes nothing). Checkpoint, with one extra option: **Start a release run** (`release-flow.md`), which prepares and uploads an App Store version. (Otherwise this is the final phase - after this checkpoint, the run is complete.)
 
 ## Feature addition
 (`.ios-orchestrator/state.json` exists, OR the project exists with no state file - see "Existing non-orchestrator project" below)
